@@ -34,11 +34,11 @@ Every calculation, prediction, and log is stored locally using Room Database and
 
 <div align="center">
 
-| | | |
-|:---:|:---:|:---:|
-| <img src="./1.jpeg" width="300" /> | <img src="./2.jpeg" width="300" /> | <img src="./3.jpeg" width="300" /> |
-| <img src="./4.jpeg" width="300" /> | <img src="./5.jpeg" width="300" /> | <img src="./6.jpeg" width="300" /> |
-| | <img src="./7.jpeg" width="300" /> | |
+|                                    |                                    |                                    |
+|:----------------------------------:|:----------------------------------:|:----------------------------------:|
+| <img src="./1.jpeg" width="100" /> | <img src="./2.jpeg" width="100" /> | <img src="./3.jpeg" width="100" /> |
+| <img src="./4.jpeg" width="100" /> | <img src="./5.jpeg" width="100" /> | <img src="./6.jpeg" width="100" /> |
+|                                    | <img src="./7.jpeg" width="100" /> |                                    |
 
 </div>
 
