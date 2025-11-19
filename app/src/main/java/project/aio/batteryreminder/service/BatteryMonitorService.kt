@@ -44,7 +44,7 @@ class BatteryMonitorService : Service() {
     private var thermalAlarmEnabled = true
     private var bedtimeEnabled = true
 
-    // State Trackers
+    // State
     private var screenOffTime: Long = 0
     private var screenOffLevel: Int = 0
     private var isAlertActive = false
@@ -54,8 +54,6 @@ class BatteryMonitorService : Service() {
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent == null) return
-
-            // Thermal Watchdog (Check independently of level change)
             if (thermalAlarmEnabled) checkThermal(intent)
 
             val rawLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
@@ -70,16 +68,12 @@ class BatteryMonitorService : Service() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    // Start Ghost Drain Tracking
                     screenOffTime = System.currentTimeMillis()
                     screenOffLevel = lastLevel
                     predictionEngine.resetBuffer()
                 }
                 Intent.ACTION_SCREEN_ON -> {
-                    // Check Ghost Drain
-                    if (ghostDrainEnabled && screenOffTime > 0) {
-                        checkGhostDrain()
-                    }
+                    if (ghostDrainEnabled && screenOffTime > 0) checkGhostDrain()
                     predictionEngine.resetBuffer()
                 }
             }
@@ -98,12 +92,9 @@ class BatteryMonitorService : Service() {
         }
         registerReceiver(screenStateReceiver, screenFilter)
 
-        // Collect Settings
         serviceScope.launch(Dispatchers.IO) {
             launch { preferencesManager.thresholds.collect { thresholds = it } }
             launch { preferencesManager.emergencyThreshold.collect { emergencySecondsLimit = it } }
-
-            // New Feature Toggles
             launch { preferencesManager.ghostDrainEnabled.collect { ghostDrainEnabled = it } }
             launch { preferencesManager.thermalAlarmEnabled.collect { thermalAlarmEnabled = it } }
             launch { preferencesManager.bedtimeReminderEnabled.collect { bedtimeEnabled = it } }
@@ -124,7 +115,7 @@ class BatteryMonitorService : Service() {
             if (isAlertActive) overlayService.removeOverlay()
             predictionEngine.resetBuffer()
             alertedLevels.clear()
-            hasTriggeredBedtimeToday = false // Reset bedtime flag on charge
+            hasTriggeredBedtimeToday = false
             return
         }
 
@@ -134,7 +125,7 @@ class BatteryMonitorService : Service() {
             serviceScope.launch {
                 predictionEngine.logToDb(pct, false)
                 checkThresholds(pct)
-                checkBedtime(pct) // Check bedtime logic
+                checkBedtime(pct)
 
                 val isScreenOn = powerManager.isInteractive
                 val isCritical = pct <= 10
@@ -155,13 +146,9 @@ class BatteryMonitorService : Service() {
         }
     }
 
-    // --- FEATURE IMPLEMENTATIONS ---
-
     private fun checkThermal(intent: Intent) {
         val tempInt = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)
         val tempC = tempInt / 10.0
-
-        // Threshold: 42.0 C
         if (tempC >= 42.0 && !isAlertActive) {
             triggerAlert("OVERHEATING\n${tempC}°C", lastLevel)
         }
@@ -172,21 +159,18 @@ class BatteryMonitorService : Service() {
         val durationHrs = (now - screenOffTime) / (1000.0 * 60 * 60)
         val drop = screenOffLevel - lastLevel
 
-        // Logic: If slept for > 30 mins AND drain rate > 2% per hour
         if (durationHrs > 0.5 && (drop / durationHrs) > 2.0) {
             sendNotification(
                 "High Background Drain",
                 "Lost $drop% in ${String.format("%.1f", durationHrs)} hrs while idle."
             )
         }
-        screenOffTime = 0 // Reset
+        screenOffTime = 0
     }
 
     private fun checkBedtime(pct: Int) {
         if (!bedtimeEnabled || hasTriggeredBedtimeToday || pct > 30) return
-
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        // Between 9 PM (21) and 11 PM (23)
         if (hour in 21..23) {
             sendNotification("Bedtime Battery Check", "Battery is $pct%. Charge now for the morning.")
             hasTriggeredBedtimeToday = true
@@ -223,7 +207,7 @@ class BatteryMonitorService : Service() {
         val notification = NotificationCompat.Builder(this, "battery_monitor_channel")
             .setContentTitle(title)
             .setContentText(content)
-            .setSmallIcon(R.drawable.ic_battery_std)
+            .setSmallIcon(R.drawable.battery) // UPDATED
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
 
@@ -237,7 +221,7 @@ class BatteryMonitorService : Service() {
         return NotificationCompat.Builder(this, "battery_monitor_channel")
             .setContentTitle("AIO Monitor")
             .setContentText(content)
-            .setSmallIcon(R.drawable.ic_battery_std)
+            .setSmallIcon(R.drawable.battery) // UPDATED
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)

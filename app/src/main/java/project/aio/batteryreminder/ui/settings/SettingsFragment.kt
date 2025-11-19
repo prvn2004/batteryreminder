@@ -1,7 +1,6 @@
 package project.aio.batteryreminder.ui.settings
 
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
@@ -172,6 +171,17 @@ class SettingsFragment : Fragment() {
                 Toast.makeText(context, "Grant Overlay Permission First", Toast.LENGTH_LONG).show()
                 val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${requireContext().packageName}"))
                 startActivity(intent)
+            }
+        }
+
+        // NEW LISTENER FOR GITHUB BUTTON
+        binding.btnSettingsGithub.setOnClickListener {
+            try {
+                // Replace with your actual repo URL
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/yourusername/batteryreminder"))
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(context, "No browser found", Toast.LENGTH_SHORT).show()
             }
         }
     }

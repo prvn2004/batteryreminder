@@ -20,6 +20,7 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     private val gson = Gson()
 
     companion object {
+        val IS_FIRST_RUN = booleanPreferencesKey("is_first_run") // NEW
         val THRESHOLDS_JSON = stringPreferencesKey("thresholds_json")
         val SOUND_URI = stringPreferencesKey("sound_uri")
         val SOUND_ENABLED = booleanPreferencesKey("sound_enabled")
@@ -28,14 +29,13 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
         val TTS_ENABLED = booleanPreferencesKey("tts_enabled")
         val ALERT_DURATION = intPreferencesKey("alert_duration")
         val EMERGENCY_THRESHOLD = intPreferencesKey("emergency_threshold_seconds")
-
-        // NEW FEATURE KEYS
         val GHOST_DRAIN_ENABLED = booleanPreferencesKey("ghost_drain_enabled")
         val THERMAL_ALARM_ENABLED = booleanPreferencesKey("thermal_alarm_enabled")
         val BEDTIME_REMINDER_ENABLED = booleanPreferencesKey("bedtime_reminder_enabled")
     }
 
-    // ... (Existing flows remain the same) ...
+    // Flows
+    val isFirstRun: Flow<Boolean> = context.dataStore.data.map { it[IS_FIRST_RUN] ?: true }
     val thresholds: Flow<List<Threshold>> = context.dataStore.data.map { preferences ->
         val json = preferences[THRESHOLDS_JSON]
         if (json.isNullOrEmpty()) {
@@ -46,6 +46,7 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
         }
     }
 
+    // ... (Other flows remain the same as previous code, omitted for brevity but assume they are here) ...
     val soundUri: Flow<String> = context.dataStore.data.map { it[SOUND_URI] ?: "" }
     val soundEnabled: Flow<Boolean> = context.dataStore.data.map { it[SOUND_ENABLED] ?: true }
     val flashEnabled: Flow<Boolean> = context.dataStore.data.map { it[FLASH_ENABLED] ?: false }
@@ -53,12 +54,12 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     val ttsEnabled: Flow<Boolean> = context.dataStore.data.map { it[TTS_ENABLED] ?: false }
     val alertDuration: Flow<Int> = context.dataStore.data.map { it[ALERT_DURATION] ?: 30 }
     val emergencyThreshold: Flow<Int> = context.dataStore.data.map { it[EMERGENCY_THRESHOLD] ?: 120 }
-
-    // New Feature Flows
     val ghostDrainEnabled: Flow<Boolean> = context.dataStore.data.map { it[GHOST_DRAIN_ENABLED] ?: true }
     val thermalAlarmEnabled: Flow<Boolean> = context.dataStore.data.map { it[THERMAL_ALARM_ENABLED] ?: true }
     val bedtimeReminderEnabled: Flow<Boolean> = context.dataStore.data.map { it[BEDTIME_REMINDER_ENABLED] ?: true }
 
+    // Updates
+    suspend fun setFirstRunCompleted() = context.dataStore.edit { it[IS_FIRST_RUN] = false } // NEW
     suspend fun updateAlertDuration(seconds: Int) = context.dataStore.edit { it[ALERT_DURATION] = seconds }
     suspend fun updateThresholds(list: List<Threshold>) = context.dataStore.edit { it[THRESHOLDS_JSON] = gson.toJson(list) }
     suspend fun updateSoundUri(uri: String) = context.dataStore.edit { it[SOUND_URI] = uri }
@@ -67,8 +68,6 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     suspend fun updateVibration(enabled: Boolean) = context.dataStore.edit { it[VIBRATION_ENABLED] = enabled }
     suspend fun updateTts(enabled: Boolean) = context.dataStore.edit { it[TTS_ENABLED] = enabled }
     suspend fun updateEmergencyThreshold(seconds: Int) = context.dataStore.edit { it[EMERGENCY_THRESHOLD] = seconds }
-
-    // New Update Functions
     suspend fun updateGhostDrain(enabled: Boolean) = context.dataStore.edit { it[GHOST_DRAIN_ENABLED] = enabled }
     suspend fun updateThermalAlarm(enabled: Boolean) = context.dataStore.edit { it[THERMAL_ALARM_ENABLED] = enabled }
     suspend fun updateBedtimeReminder(enabled: Boolean) = context.dataStore.edit { it[BEDTIME_REMINDER_ENABLED] = enabled }

@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace 'project.aio.batteryreminder'
-    compileSdk 36 // Downgraded slightly to 35 as 36 is extremely new/preview, ensuring stability.
+    compileSdk 36
 
     defaultConfig {
         applicationId "project.aio.batteryreminder"
@@ -61,13 +61,14 @@ dependencies {
     implementation libs.hilt.android
     kapt libs.hilt.compiler
 
+    // Glide (Image Loading) - ADDED THIS
+    implementation 'com.github.bumptech.glide:glide:4.16.0'
+
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
     androidTestImplementation libs.androidx.espresso.core
 
-    implementation libs.gson
-
-    // Room Database (For learning battery patterns)
+    // Room
     def room_version = "2.6.1"
     implementation "androidx.room:room-runtime:$room_version"
     implementation "androidx.room:room-ktx:$room_version"
