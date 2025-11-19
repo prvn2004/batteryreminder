@@ -30,20 +30,6 @@ Every calculation, prediction, and log is stored locally using Room Database and
 
 ---
 
-## 📸 App Screenshots
-
-<div align="center">
-
-|                                    |                                    |                                    |
-|:----------------------------------:|:----------------------------------:|:----------------------------------:|
-| <img src="./1.jpeg" width="100" /> | <img src="./2.jpeg" width="100" /> | <img src="./3.jpeg" width="100" /> |
-| <img src="./4.jpeg" width="100" /> | <img src="./5.jpeg" width="100" /> | <img src="./6.jpeg" width="100" /> |
-|                                    | <img src="./7.jpeg" width="100" /> |                                    |
-
-</div>
-
----
-
 ## 🧠 The Philosophy: Mind First, AI Second
 This project represents a new era of software engineering.
 - **The Vision & Logic:** Purely Human. The architecture, the safety algorithms, and the user experience were designed by human intuition (@praveen).
@@ -85,3 +71,17 @@ This project is open for everyone.
 - **Reuse:** Take the `CableBenchmarkEngine` or `PredictionEngine` modules and use them in your app.
 
 **Star this repo if you find it useful!** ⭐
+
+## 📸 App Screenshots
+
+<div align="center">
+
+|                                    |                                    |                                    |
+|:----------------------------------:|:----------------------------------:|:----------------------------------:|
+| <img src="./1.jpeg" width="100" /> | <img src="./2.jpeg" width="100" /> | <img src="./3.jpeg" width="100" /> |
+| <img src="./4.jpeg" width="100" /> | <img src="./5.jpeg" width="100" /> | <img src="./6.jpeg" width="100" /> |
+|                                    | <img src="./7.jpeg" width="100" /> |                                    |
+
+</div>
+
+---
