@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <solid android:color="@android:color/transparent"/>
+
+    <!-- High radius to match device screen corners (Assistant Style) -->
+    <corners android:radius="48dp"/>
+
+    <!-- Default stroke, width and color are updated programmatically -->
+    <stroke android:width="3dp" android:color="#FFFFFF"/>
+</shape>

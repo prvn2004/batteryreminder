@@ -5,6 +5,7 @@ import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,21 +17,22 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.chip.Chip
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import project.aio.batteryreminder.R
 import project.aio.batteryreminder.data.PreferencesManager
 import project.aio.batteryreminder.data.model.Threshold
-import project.aio.batteryreminder.databinding.DialogAddThresholdBinding
 import project.aio.batteryreminder.databinding.FragmentSettingsBinding
-import project.aio.batteryreminder.ui.alert.AlertActivity
+import project.aio.batteryreminder.ui.overlay.OverlayService
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class SettingsFragment : Fragment() {
 
     @Inject lateinit var preferencesManager: PreferencesManager
+    @Inject lateinit var overlayService: OverlayService
+
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
 
@@ -60,7 +62,7 @@ class SettingsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Handle Insets
+        // Handle Insets (Margins for Status Bar)
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -81,8 +83,22 @@ class SettingsFragment : Fragment() {
     }
 
     private fun setupListeners() {
-        binding.btnAddThreshold.setOnClickListener { showAddDialog() }
+        // ADD THRESHOLD (BottomSheet)
+        binding.btnAddThreshold.setOnClickListener { showAddBottomSheet() }
 
+        // DURATION CHIPS
+        binding.chipGroupDuration.setOnCheckedChangeListener { _, checkedId ->
+            val seconds = when(checkedId) {
+                R.id.chip3s -> 3
+                R.id.chip10s -> 10
+                R.id.chip30s -> 30
+                R.id.chipInfinite -> -1
+                else -> 30
+            }
+            lifecycleScope.launch { preferencesManager.updateAlertDuration(seconds) }
+        }
+
+        // TOGGLES
         binding.cardSound.setOnClickListener {
             val currentState = binding.ivSoundCheck.isVisible
             lifecycleScope.launch { preferencesManager.updateSound(!currentState) }
@@ -108,16 +124,20 @@ class SettingsFragment : Fragment() {
             lifecycleScope.launch { preferencesManager.updateTts(!binding.ivTtsCheck.isVisible) }
         }
 
-        // DIAGNOSTIC TEST LISTENER
+        // DIAGNOSTIC TEST (Overlay)
         binding.btnTestAlert.setOnClickListener {
-            val intent = Intent(requireContext(), AlertActivity::class.java).apply {
-                putExtra("message", "SYSTEM TEST\nVERIFYING ALERTS")
+            if (Settings.canDrawOverlays(requireContext())) {
+                overlayService.showOverlay("SYSTEM TEST\nDIAGNOSTIC MODE", 15)
+            } else {
+                Toast.makeText(context, "Grant Overlay Permission First", Toast.LENGTH_LONG).show()
+                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${requireContext().packageName}"))
+                startActivity(intent)
             }
-            startActivity(intent)
         }
     }
 
     private fun setupObservers() {
+        // Thresholds
         lifecycleScope.launch {
             preferencesManager.thresholds.collect {
                 currentThresholds = it.toMutableList()
@@ -125,6 +145,22 @@ class SettingsFragment : Fragment() {
                 updateAddButtonState()
             }
         }
+
+        // Duration
+        lifecycleScope.launch {
+            preferencesManager.alertDuration.collect { duration ->
+                val chipId = when(duration) {
+                    3 -> R.id.chip3s
+                    10 -> R.id.chip10s
+                    30 -> R.id.chip30s
+                    -1 -> R.id.chipInfinite
+                    else -> R.id.chip30s
+                }
+                binding.chipGroupDuration.check(chipId)
+            }
+        }
+
+        // Toggles
         lifecycleScope.launch {
             preferencesManager.soundEnabled.collect {
                 updateCardState(binding.cardSound, binding.ivSoundCheck, it)
@@ -166,28 +202,14 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    private fun showAddDialog() {
+    private fun showAddBottomSheet() {
         if (currentThresholds.size >= 5) {
             Toast.makeText(context, "Max 5 thresholds allowed", Toast.LENGTH_SHORT).show()
             return
         }
-
-        val dialogBinding = DialogAddThresholdBinding.inflate(layoutInflater)
-        var selectedValue = 50
-
-        dialogBinding.sliderValue.addOnChangeListener { _, value, _ ->
-            selectedValue = value.toInt()
-            dialogBinding.tvValue.text = "$selectedValue%"
-        }
-
-        MaterialAlertDialogBuilder(requireContext(), R.style.Theme_BatteryReminder)
-            .setTitle("New Threshold")
-            .setView(dialogBinding.root)
-            .setPositiveButton("ADD") { _, _ ->
-                addThreshold(selectedValue)
-            }
-            .setNegativeButton("CANCEL", null)
-            .show()
+        AddThresholdBottomSheet { value ->
+            addThreshold(value)
+        }.show(parentFragmentManager, "AddThreshold")
     }
 
     private fun addThreshold(value: Int) {

@@ -62,6 +62,64 @@
 
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/gray_dark" android:layout_marginBottom="24dp"/>
 
+        <!-- DURATION SECTION -->
+        <TextView
+            android:text="ALERT DURATION"
+            android:textColor="@color/gray_light"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"
+            android:layout_marginTop="16dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chipGroupDuration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:singleSelection="true"
+            app:selectionRequired="true"
+            android:layout_marginBottom="16dp">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip3s"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="3 Sec"
+                android:textColor="@color/selector_chip_text"
+                app:chipBackgroundColor="@color/selector_chip_bg"/>
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip10s"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="10 Sec"
+                android:textColor="@color/selector_chip_text"
+                app:chipBackgroundColor="@color/selector_chip_bg"/>
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip30s"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="30 Sec"
+                android:textColor="@color/selector_chip_text"
+                app:chipBackgroundColor="@color/selector_chip_bg"/>
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipInfinite"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Until Dismissed"
+                android:textColor="@color/selector_chip_text"
+                app:chipBackgroundColor="@color/selector_chip_bg"/>
+
+        </com.google.android.material.chip.ChipGroup>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/gray_dark" android:layout_marginBottom="24dp"/>
+
         <!-- Actions Section -->
         <TextView
             android:text="ALERTS and TRIGGERS"

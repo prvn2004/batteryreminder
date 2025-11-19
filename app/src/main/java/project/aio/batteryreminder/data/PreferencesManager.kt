@@ -44,6 +44,15 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     val flashEnabled: Flow<Boolean> = context.dataStore.data.map { it[FLASH_ENABLED] ?: false }
     val vibrationEnabled: Flow<Boolean> = context.dataStore.data.map { it[VIBRATION_ENABLED] ?: true }
     val ttsEnabled: Flow<Boolean> = context.dataStore.data.map { it[TTS_ENABLED] ?: false }
+    // Inside PreferencesManager companion object
+    val ALERT_DURATION = intPreferencesKey("alert_duration") // Seconds. -1 for infinite.
+
+    // Inside class body
+    val alertDuration: Flow<Int> = context.dataStore.data.map { it[ALERT_DURATION] ?: 30 } // Default 30s
+
+    suspend fun updateAlertDuration(seconds: Int) {
+        context.dataStore.edit { it[ALERT_DURATION] = seconds }
+    }
 
     suspend fun updateThresholds(list: List<Threshold>) {
         val json = gson.toJson(list)
