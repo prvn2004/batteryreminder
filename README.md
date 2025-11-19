@@ -71,11 +71,11 @@ Use any module freely. Star the repo if you vibe with it ⭐
 
 <div align="center">
 
-|                                             |                                             |                                             |
-|:-------------------------------------------:|:-------------------------------------------:|:-------------------------------------------:|
-| <img src="./assets/1.jpeg" width="100" />   | <img src="./assets/1.jpeg" width="100" />   | <img src="./assets/1.jpeg" width="100" />   |
-| <img src="./assets/1.jpeg" width="100" />   | <img src="./assets/1.jpeg" width="100" />   | <img src="./assets/1.jpeg" width="100" />   |
-|                                             | <img src="./assets/1.jpeg" width="100" />   |                                             |
+|                                               |                                               |                                               |
+|:---------------------------------------------:|:---------------------------------------------:|:---------------------------------------------:|
+| <img src="./assets/1.jpeg" width="100" />     | <img src="./assets/2.jpeg" width="100" />     | <img src="./assets/3.jpeg" width="100" />     |
+| <img src="./assets/4.jpeg" width="100" />     | <img src="./assets/5.jpeg" width="100" />     | <img src="./assets/6.jpeg" width="100" />     |
+|                                               | <img src="./assets/7.jpeg" width="100" />     |                                               |
 
 </div>
 
