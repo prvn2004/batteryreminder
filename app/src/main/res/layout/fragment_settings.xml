@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/black"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="24dp"
+        android:paddingBottom="64dp">
+
+        <!-- Title Centered with Top Margin -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="32dp"
+            android:layout_marginBottom="32dp"
+            android:text="CONFIGURATION"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:letterSpacing="0.15"
+            android:textStyle="bold" />
+
+        <!-- Threshold Section -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:text="THRESHOLDS"
+                android:textColor="@color/gray_light"
+                android:textStyle="bold"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"/>
+
+            <TextView
+                android:id="@+id/btnAddThreshold"
+                android:text="+ ADD NEW"
+                android:textColor="@color/white"
+                android:textStyle="bold"
+                android:background="?attr/selectableItemBackground"
+                android:padding="8dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvThresholds"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false"
+            android:layout_marginBottom="24dp"/>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/gray_dark" android:layout_marginBottom="24dp"/>
+
+        <!-- Actions Section -->
+        <TextView
+            android:text="ALERTS and TRIGGERS"
+            android:textColor="@color/gray_light"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+        <!-- Sound Card -->
+        <LinearLayout
+            android:id="@+id/cardSound"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card_outlined"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical">
+
+                <ImageView android:src="@drawable/ic_settings" android:layout_width="24dp" android:layout_height="24dp" app:tint="@color/white" android:layout_marginEnd="16dp"/>
+
+                <TextView
+                    android:text="Audio Alert"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"/>
+
+                <ImageView
+                    android:id="@+id/ivSoundCheck"
+                    android:src="@drawable/ic_battery_std"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    app:tint="@color/black"
+                    android:visibility="gone"/>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/btnSelectSound"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Select Custom Sound >"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:gravity="end"
+                android:paddingTop="12dp"
+                android:alpha="0.7"/>
+        </LinearLayout>
+
+        <!-- Flash Card -->
+        <LinearLayout
+            android:id="@+id/cardFlash"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_card_outlined"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:text="Strobe Flash"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"/>
+
+            <ImageView
+                android:id="@+id/ivFlashCheck"
+                android:src="@drawable/ic_battery_std"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:tint="@color/black"
+                android:visibility="gone"/>
+        </LinearLayout>
+
+        <!-- Vibration Card -->
+        <LinearLayout
+            android:id="@+id/cardVib"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_card_outlined"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:text="Vibration"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"/>
+
+            <ImageView
+                android:id="@+id/ivVibCheck"
+                android:src="@drawable/ic_battery_std"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:tint="@color/black"
+                android:visibility="gone"/>
+        </LinearLayout>
+
+        <!-- TTS Card -->
+        <LinearLayout
+            android:id="@+id/cardTts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_card_outlined"
+            android:padding="16dp"
+            android:layout_marginBottom="32dp">
+
+            <TextView
+                android:text="Voice Alert (TTS)"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"/>
+
+            <ImageView
+                android:id="@+id/ivTtsCheck"
+                android:src="@drawable/ic_battery_std"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:tint="@color/black"
+                android:visibility="gone"/>
+        </LinearLayout>
+
+        <!-- DIAGNOSTIC TEST BUTTON -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTestAlert"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="RUN ALERT DIAGNOSTIC"
+            android:textColor="@color/black"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            app:backgroundTint="@color/white"
+            app:cornerRadius="8dp"
+            android:layout_gravity="center"/>
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

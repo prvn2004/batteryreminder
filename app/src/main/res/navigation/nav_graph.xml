@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/dashboardFragment">
+
+    <fragment
+        android:id="@+id/dashboardFragment"
+        android:name="project.aio.batteryreminder.ui.dashboard.DashboardFragment"
+        android:label="Monitor" />
+
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="project.aio.batteryreminder.ui.settings.SettingsFragment"
+        android:label="Settings" />
+</navigation>
