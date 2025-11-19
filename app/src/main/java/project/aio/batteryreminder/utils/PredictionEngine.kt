@@ -1,4 +1,3 @@
-// ===== batteryreminder\app\src\main\java\project\aio\batteryreminder\utils\PredictionEngine.kt =====
 package project.aio.batteryreminder.utils
 
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +13,6 @@ class PredictionEngine @Inject constructor(
     private val batteryDao: BatteryDao
 ) {
 
-    // RAM Cache: Stores (Timestamp, Level). Max 25 items.
     private val historyBuffer = ArrayDeque<Pair<Long, Int>>(25)
 
     fun resetBuffer() {
@@ -25,7 +23,6 @@ class PredictionEngine @Inject constructor(
 
     fun addHistoryPoint(timestamp: Long, level: Int) {
         synchronized(historyBuffer) {
-            // Deduplication
             if (historyBuffer.isNotEmpty() && historyBuffer.peekLast()?.second == level) {
                 return
             }
@@ -38,7 +35,6 @@ class PredictionEngine @Inject constructor(
 
     suspend fun logToDb(level: Int, isCharging: Boolean) {
         withContext(Dispatchers.IO) {
-            // Random cleanup to keep DB lean
             if (Math.random() < 0.01) {
                 val oneDayAgo = System.currentTimeMillis() - (24 * 60 * 60 * 1000)
                 batteryDao.cleanOldData(oneDayAgo)
@@ -47,6 +43,12 @@ class PredictionEngine @Inject constructor(
         }
     }
 
+    /**
+     * Universal Weighted Regression.
+     * Returns seconds until target.
+     * If discharging: predicts time to 0.
+     * If charging: predicts time to 100.
+     */
     fun estimateTimeRemainingWeighted(): Long {
         val data = synchronized(historyBuffer) { historyBuffer.toList() }
         if (data.size < 3) return -1L
@@ -61,7 +63,6 @@ class PredictionEngine @Inject constructor(
 
         data.forEachIndexed { index, (time, level) ->
             val weight = (index + 1).toDouble() // Newer = heavier
-
             val x = (time - startTime) / 1000.0
             val y = level.toDouble()
 
@@ -76,14 +77,22 @@ class PredictionEngine @Inject constructor(
         if (denominator == 0.0) return -1L
 
         val slope = (sumWeights * sumXY - sumX * sumY) / denominator
-
-        if (slope >= 0) return -1L
-
         val intercept = (sumY - slope * sumX) / sumWeights
-        val timeToZero = -intercept / slope
+
+        // Detect Direction
+        val isCharging = slope > 0
+
+        val targetY = if (isCharging) 100.0 else 0.0
+
+        // Prevent division by zero or infinite time on flat slope
+        if (kotlin.math.abs(slope) < 0.001) return -1L
+
+        // Solve for x when y = targetY
+        // y = mx + c  =>  target = slope*x + intercept  =>  x = (target - intercept) / slope
+        val timeToTarget = (targetY - intercept) / slope
 
         val lastPointTime = (data.last().first - startTime) / 1000.0
-        val remainingSeconds = timeToZero - lastPointTime
+        val remainingSeconds = timeToTarget - lastPointTime
 
         return if (remainingSeconds > 0) remainingSeconds.toLong() else 0L
     }

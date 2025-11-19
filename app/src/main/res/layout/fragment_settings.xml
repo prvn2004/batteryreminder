@@ -169,8 +169,6 @@
                 android:textColor="@color/white"
                 android:gravity="end"/>
 
-            <!-- SWITCH REMOVED FROM HERE -->
-
             <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/gray_light" android:layout_marginVertical="12dp" android:alpha="0.5"/>
 
             <com.google.android.material.button.MaterialButton
@@ -184,6 +182,53 @@
                 app:backgroundTint="@color/white"
                 app:cornerRadius="8dp"/>
 
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/gray_dark" android:layout_marginBottom="24dp"/>
+
+        <!-- SMART PROTECTION SECTION -->
+        <TextView
+            android:text="SMART PROTECTION"
+            android:textColor="@color/gray_light"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card_outlined"
+            android:padding="16dp"
+            android:layout_marginBottom="24dp">
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switchThermal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Thermal Watchdog (>42°C)"
+                android:textColor="@color/white"
+                app:thumbTint="@color/white"
+                app:trackTint="@color/gray_light"/>
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switchGhost"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Ghost Drain Detective"
+                android:textColor="@color/white"
+                app:thumbTint="@color/white"
+                app:trackTint="@color/gray_light"/>
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switchBedtime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Bedtime Charge Reminder"
+                android:textColor="@color/white"
+                app:thumbTint="@color/white"
+                app:trackTint="@color/gray_light"/>
         </LinearLayout>
 
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/gray_dark" android:layout_marginBottom="24dp"/>
@@ -331,7 +376,7 @@
                 android:visibility="gone"/>
         </LinearLayout>
 
-        <!-- DIAGNOSTIC TEST BUTTON -->
+        <!-- DIAGNOSTIC NTEST BUTTON -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnTestAlert"
             android:layout_width="match_parent"

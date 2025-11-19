@@ -28,8 +28,14 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
         val TTS_ENABLED = booleanPreferencesKey("tts_enabled")
         val ALERT_DURATION = intPreferencesKey("alert_duration")
         val EMERGENCY_THRESHOLD = intPreferencesKey("emergency_threshold_seconds")
+
+        // NEW FEATURE KEYS
+        val GHOST_DRAIN_ENABLED = booleanPreferencesKey("ghost_drain_enabled")
+        val THERMAL_ALARM_ENABLED = booleanPreferencesKey("thermal_alarm_enabled")
+        val BEDTIME_REMINDER_ENABLED = booleanPreferencesKey("bedtime_reminder_enabled")
     }
 
+    // ... (Existing flows remain the same) ...
     val thresholds: Flow<List<Threshold>> = context.dataStore.data.map { preferences ->
         val json = preferences[THRESHOLDS_JSON]
         if (json.isNullOrEmpty()) {
@@ -48,23 +54,22 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     val alertDuration: Flow<Int> = context.dataStore.data.map { it[ALERT_DURATION] ?: 30 }
     val emergencyThreshold: Flow<Int> = context.dataStore.data.map { it[EMERGENCY_THRESHOLD] ?: 120 }
 
-    suspend fun updateAlertDuration(seconds: Int) {
-        context.dataStore.edit { it[ALERT_DURATION] = seconds }
-    }
+    // New Feature Flows
+    val ghostDrainEnabled: Flow<Boolean> = context.dataStore.data.map { it[GHOST_DRAIN_ENABLED] ?: true }
+    val thermalAlarmEnabled: Flow<Boolean> = context.dataStore.data.map { it[THERMAL_ALARM_ENABLED] ?: true }
+    val bedtimeReminderEnabled: Flow<Boolean> = context.dataStore.data.map { it[BEDTIME_REMINDER_ENABLED] ?: true }
 
-    suspend fun updateThresholds(list: List<Threshold>) {
-        val json = gson.toJson(list)
-        context.dataStore.edit { it[THRESHOLDS_JSON] = json }
-    }
-
-    suspend fun updateSoundUri(uri: String) {
-        context.dataStore.edit { it[SOUND_URI] = uri }
-    }
-
+    suspend fun updateAlertDuration(seconds: Int) = context.dataStore.edit { it[ALERT_DURATION] = seconds }
+    suspend fun updateThresholds(list: List<Threshold>) = context.dataStore.edit { it[THRESHOLDS_JSON] = gson.toJson(list) }
+    suspend fun updateSoundUri(uri: String) = context.dataStore.edit { it[SOUND_URI] = uri }
     suspend fun updateSound(enabled: Boolean) = context.dataStore.edit { it[SOUND_ENABLED] = enabled }
     suspend fun updateFlash(enabled: Boolean) = context.dataStore.edit { it[FLASH_ENABLED] = enabled }
     suspend fun updateVibration(enabled: Boolean) = context.dataStore.edit { it[VIBRATION_ENABLED] = enabled }
     suspend fun updateTts(enabled: Boolean) = context.dataStore.edit { it[TTS_ENABLED] = enabled }
-
     suspend fun updateEmergencyThreshold(seconds: Int) = context.dataStore.edit { it[EMERGENCY_THRESHOLD] = seconds }
+
+    // New Update Functions
+    suspend fun updateGhostDrain(enabled: Boolean) = context.dataStore.edit { it[GHOST_DRAIN_ENABLED] = enabled }
+    suspend fun updateThermalAlarm(enabled: Boolean) = context.dataStore.edit { it[THERMAL_ALARM_ENABLED] = enabled }
+    suspend fun updateBedtimeReminder(enabled: Boolean) = context.dataStore.edit { it[BEDTIME_REMINDER_ENABLED] = enabled }
 }

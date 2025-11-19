@@ -111,7 +111,16 @@ class SettingsFragment : Fragment() {
             }
         })
 
-        // REMOVED: AutoDim Switch Listener
+        // New Feature Listeners
+        binding.switchGhost.setOnCheckedChangeListener { _, isChecked ->
+            lifecycleScope.launch { preferencesManager.updateGhostDrain(isChecked) }
+        }
+        binding.switchThermal.setOnCheckedChangeListener { _, isChecked ->
+            lifecycleScope.launch { preferencesManager.updateThermalAlarm(isChecked) }
+        }
+        binding.switchBedtime.setOnCheckedChangeListener { _, isChecked ->
+            lifecycleScope.launch { preferencesManager.updateBedtimeReminder(isChecked) }
+        }
 
         binding.btnTestPrediction.setOnClickListener {
             if (!Settings.canDrawOverlays(requireContext())) {
@@ -198,7 +207,10 @@ class SettingsFragment : Fragment() {
             }
         }
 
-        // REMOVED: AutoDim Observer
+        // New Feature Observers
+        lifecycleScope.launch { preferencesManager.ghostDrainEnabled.collect { binding.switchGhost.isChecked = it } }
+        lifecycleScope.launch { preferencesManager.thermalAlarmEnabled.collect { binding.switchThermal.isChecked = it } }
+        lifecycleScope.launch { preferencesManager.bedtimeReminderEnabled.collect { binding.switchBedtime.isChecked = it } }
 
         lifecycleScope.launch {
             preferencesManager.soundEnabled.collect {
