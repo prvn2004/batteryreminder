@@ -143,4 +143,23 @@ class AlertManager @Inject constructor(@ApplicationContext private val context: 
             } catch (e2: Exception) {}
         }
     }
+
+    fun vibrateHeartbeat() {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+
+        // Double tap heartbeat pattern
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val effect = VibrationEffect.createWaveform(longArrayOf(0, 100, 50, 100), -1) // No repeat
+            vibrator.vibrate(effect)
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(longArrayOf(0, 100, 50, 100), -1)
+        }
+    }
 }

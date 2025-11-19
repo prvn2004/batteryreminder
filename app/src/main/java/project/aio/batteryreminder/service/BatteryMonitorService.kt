@@ -17,6 +17,7 @@ import project.aio.batteryreminder.data.PreferencesManager
 import project.aio.batteryreminder.data.model.Threshold
 import project.aio.batteryreminder.ui.MainActivity
 import project.aio.batteryreminder.ui.overlay.OverlayService
+import project.aio.batteryreminder.utils.PredictionEngine
 import javax.inject.Inject
 import kotlin.math.abs
 
@@ -25,12 +26,15 @@ class BatteryMonitorService : Service() {
 
     @Inject lateinit var preferencesManager: PreferencesManager
     @Inject lateinit var overlayService: OverlayService
+    @Inject lateinit var predictionEngine: PredictionEngine // NEW
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private var thresholds = listOf<Threshold>()
+    private var emergencySecondsLimit = 120
     private var lastLevel = -1
     private var isAlertActive = false
+    private var isEmergencyActive = false // To track prediction alert
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -46,40 +50,59 @@ class BatteryMonitorService : Service() {
         serviceScope.launch {
             preferencesManager.thresholds.collect { thresholds = it }
         }
+        serviceScope.launch {
+            preferencesManager.emergencyThreshold.collect { emergencySecondsLimit = it }
+        }
     }
 
     private fun checkBattery(intent: Intent) {
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+        val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+
         val pct = ((level * 100) / scale.toFloat()).toInt()
 
-        // Initialize lastLevel on first run
         if (lastLevel == -1) {
             lastLevel = pct
             return
         }
 
-        // Only check if level changed
-        if (pct != lastLevel && !isAlertActive) {
+        // 1. LOG DATA FOR LEARNING (If level changed)
+        if (pct != lastLevel) {
+            serviceScope.launch {
+                predictionEngine.logBatteryState(pct, isCharging)
+            }
+        }
 
+        // 2. STANDARD THRESHOLD CHECKS
+        if (pct != lastLevel && !isAlertActive && !isEmergencyActive) {
             for (t in thresholds) {
                 val target = t.percentage
-                // Check if we just passed this target
                 val crossedDown = lastLevel > target && pct <= target
                 val crossedUp = lastLevel < target && pct >= target
 
                 if (crossedDown || crossedUp) {
                     triggerAlert("BATTERY EVENT", pct)
-                    break // Only trigger once per update
+                    break
                 }
             }
         }
 
-        // Reset alert lock if we moved away significantly (hysteresis of 2%)
-        if (isAlertActive) {
-            if (abs(pct - lastLevel) >= 2) {
-                isAlertActive = false
+        // 3. INTELLIGENT PREDICTION CHECK (Only when discharging)
+        if (!isCharging && pct < 15) { // Only run expensive math on low battery
+            serviceScope.launch {
+                val secondsLeft = predictionEngine.calculateTimeRemaining(pct)
+
+                // If valid prediction AND time is less than limit AND not already alerting
+                if (secondsLeft > 0 && secondsLeft < emergencySecondsLimit && !isEmergencyActive) {
+                    isEmergencyActive = true
+                    triggerEmergencyPrediction(secondsLeft)
+                }
             }
+        } else if (isCharging) {
+            isEmergencyActive = false // Reset if charged
+            if (isAlertActive) overlayService.removeOverlay() // Auto dismiss overlay if plugged in
         }
 
         lastLevel = pct
@@ -87,19 +110,22 @@ class BatteryMonitorService : Service() {
 
     private fun triggerAlert(message: String, percentage: Int) {
         isAlertActive = true
-
-        // Use Overlay if permitted, else use Notification/Fallback
         if (android.provider.Settings.canDrawOverlays(this)) {
             CoroutineScope(Dispatchers.Main).launch {
-                overlayService.showOverlay(message, percentage)
+                overlayService.showOverlay(message, percentage, isEmergency = false)
             }
-        } else {
-            // If user hasn't granted permission, we can't "Go Wild".
-            // We send a high priority notification as backup.
-            // (Implementation of high prio notification omitted to focus on task)
         }
     }
 
+    private fun triggerEmergencyPrediction(secondsLeft: Long) {
+        if (android.provider.Settings.canDrawOverlays(this)) {
+            CoroutineScope(Dispatchers.Main).launch {
+                overlayService.showOverlay("SHUTDOWN IMMINENT", secondsLeft.toInt(), isEmergency = true)
+            }
+        }
+    }
+
+    // ... createNotification / onDestroy ...
     private fun createNotification(content: String): Notification {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)

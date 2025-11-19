@@ -1,3 +1,4 @@
+// ===== batteryreminder\app\src\main\java\project\aio\batteryreminder\ui\MainActivity.kt =====
 package project.aio.batteryreminder.ui
 
 import android.Manifest

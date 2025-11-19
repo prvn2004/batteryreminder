@@ -3,6 +3,7 @@ package project.aio.batteryreminder.ui.overlay
 import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Build
+import android.provider.Settings
 import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.View
@@ -29,7 +30,10 @@ class OverlayService @Inject constructor(
     private var job: Job? = null
     private val scope = CoroutineScope(Dispatchers.Main)
 
-    fun showOverlay(message: String, percentage: Int) {
+    private var originalBrightness: Int = -1
+
+    // percentageOrSeconds: If isEmergency=true, this is seconds left. Else percentage.
+    fun showOverlay(message: String, percentageOrSeconds: Int, isEmergency: Boolean = false) {
         if (overlayView != null) return
 
         windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -57,33 +61,38 @@ class OverlayService @Inject constructor(
             PixelFormat.TRANSLUCENT
         )
 
+        // If Emergency, override screen brightness to 0 via Window Attributes first (fastest method)
+        if (isEmergency) {
+            params.screenBrightness = 0.01f
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
 
         try {
             windowManager?.addView(overlayView, params)
-            startAlertLogic(message, percentage)
+            startAlertLogic(message, percentageOrSeconds, isEmergency)
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    private fun startAlertLogic(message: String, percentage: Int) {
+    private fun startAlertLogic(message: String, value: Int, isEmergency: Boolean) {
         binding?.apply {
             tvMessage.text = message.uppercase()
-            tvPercentage.text = "$percentage%"
 
-            val isLow = percentage <= 20
-            val color = if (isLow) 0xFFFF0000.toInt() else 0xFFFFFFFF.toInt() // Red or White
-
+            val isLow = if (!isEmergency) value <= 20 else true
+            val color = if (isLow) 0xFFFF0000.toInt() else 0xFFFFFFFF.toInt()
             tvPercentage.setTextColor(color)
-
-            // --- CUSTOM VIEW UPDATE ---
-            // We access the custom BracketBorderView directly
             borderView.setBorderColor(color)
 
             btnDismiss.setOnClickListener { removeOverlay() }
+        }
+
+        // Try System Wide Dimming for Emergency
+        if (isEmergency) {
+            attemptSystemDimming()
         }
 
         job = scope.launch {
@@ -94,10 +103,10 @@ class OverlayService @Inject constructor(
             var soundUri = ""
 
             val prefs = preferencesManager
-            launch { prefs.alertDuration.collect { duration = it } }
-            launch { prefs.soundEnabled.collect { sound = it } }
-            launch { prefs.flashEnabled.collect { flash = it } }
-            launch { prefs.vibrationEnabled.collect { vib = it } }
+            launch { prefs.alertDuration.collect { duration = if (isEmergency) -1 else it } } // Infinite duration for emergency
+            launch { prefs.soundEnabled.collect { sound = if (isEmergency) false else it } } // No sound for emergency (save power)
+            launch { prefs.flashEnabled.collect { flash = if (isEmergency) false else it } } // No Flash for emergency (save power)
+            launch { prefs.vibrationEnabled.collect { vib = it } } // Keep vibration
             launch { prefs.soundUri.collect { soundUri = it } }
 
             delay(200)
@@ -106,28 +115,71 @@ class OverlayService @Inject constructor(
             if (vib) alertManager.vibrate()
             if (flash) alertManager.startStrobe(this)
 
+            // ANIMATION LOOP
             launch {
+                var timeLeft = value
                 while (isActive) {
-                    // Pulse the custom border view
+                    // UI Updates
+                    if (isEmergency) {
+                        // Countdown Logic
+                        val mins = timeLeft / 60
+                        val secs = timeLeft % 60
+                        val timeStr = String.format("%02d:%02d", mins, secs)
+                        binding?.tvPercentage?.text = timeStr
+                        binding?.tvPercentage?.textSize = 72f // Slightly smaller for 00:00
+
+                        if (timeLeft > 0) timeLeft--
+
+                        // Heartbeat vibration for emergency
+                        if (timeLeft % 15 == 0) alertManager.vibrateHeartbeat()
+                    } else {
+                        binding?.tvPercentage?.text = "$value%"
+                    }
+
+                    // Visual Pulse
                     binding?.borderView?.animate()?.alpha(1.0f)?.setDuration(150)?.start()
-                    binding?.whiteFlashOverlay?.alpha = 0.15f
+                    binding?.whiteFlashOverlay?.alpha = if (isEmergency) 0.05f else 0.15f // Dimmer flash for emergency
                     delay(200)
 
                     binding?.borderView?.animate()?.alpha(0.4f)?.setDuration(150)?.start()
                     binding?.whiteFlashOverlay?.alpha = 0.0f
-                    delay(200)
+
+                    // Wait remaining second (approx)
+                    delay(800)
                 }
             }
 
-            if (duration != -1) {
+            if (duration != -1 && !isEmergency) {
                 delay(duration * 1000L)
                 removeOverlay()
             }
         }
     }
 
+    private fun attemptSystemDimming() {
+        // This requires WRITE_SETTINGS permission
+        if (Settings.System.canWrite(context)) {
+            try {
+                originalBrightness = Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+                // Set to minimum (1)
+                Settings.System.putInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 1)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun restoreBrightness() {
+        if (originalBrightness != -1 && Settings.System.canWrite(context)) {
+            try {
+                Settings.System.putInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS, originalBrightness)
+            } catch(e: Exception) {}
+        }
+    }
+
     fun removeOverlay() {
         try {
+            restoreBrightness()
             job?.cancel()
             alertManager.stopSound()
             alertManager.stopVibrate()

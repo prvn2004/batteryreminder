@@ -120,6 +120,82 @@
 
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/gray_dark" android:layout_marginBottom="24dp"/>
 
+        <!-- PREDICTION SECTION -->
+        <TextView
+            android:text="INTELLIGENT PREDICTION"
+            android:textColor="@color/gray_light"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card_outlined"
+            android:padding="16dp"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:text="Emergency Countdown Trigger"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold" android:layout_height="wrap_content" android:layout_width="wrap_content"/>
+
+            <TextView
+                android:text="Calculates drain rate to predict shutdown. Alerts when time remaining is below:"
+                android:textColor="@color/gray_light"
+                android:textSize="12sp"
+                android:layout_marginBottom="12dp" android:layout_height="wrap_content" android:layout_width="wrap_content"/>
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/sliderPrediction"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:valueFrom="60"
+                android:valueTo="600"
+                android:stepSize="30"
+                android:value="120"
+                app:thumbColor="@color/white"
+                app:trackColorActive="@color/white"
+                app:trackColorInactive="@color/gray_light"/>
+
+            <TextView
+                android:id="@+id/tvPredictionValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="2 Minutes"
+                android:textColor="@color/white"
+                android:gravity="end"/>
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switchAutoDim"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Auto-Dim Screen (Save Power)"
+                android:textColor="@color/white"
+                app:thumbTint="@color/white"
+                app:trackTint="@color/gray_light"
+                android:layout_marginTop="8dp"/>
+
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/gray_light" android:layout_marginVertical="12dp" android:alpha="0.5"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnTestPrediction"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:text="SIMULATE PREDICTION ALERT"
+                android:textColor="@color/black"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/white"
+                app:cornerRadius="8dp"/>
+
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/gray_dark" android:layout_marginBottom="24dp"/>
+
         <!-- Actions Section -->
         <TextView
             android:text="ALERTS and TRIGGERS"

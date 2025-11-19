@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" /> <!-- Ensure camera hardware is present for flash features -->
     <!-- Add this line inside <manifest> tag, above <application> -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
+
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />

@@ -1,9 +1,12 @@
+// ===== batteryreminder\app\src\main\java\project\aio\batteryreminder\ui\settings\SettingsFragment.kt =====
 package project.aio.batteryreminder.ui.settings
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
+import android.os.BatteryManager
 import android.os.Bundle
 import android.provider.Settings
 import android.view.LayoutInflater
@@ -25,6 +28,7 @@ import project.aio.batteryreminder.data.PreferencesManager
 import project.aio.batteryreminder.data.model.Threshold
 import project.aio.batteryreminder.databinding.FragmentSettingsBinding
 import project.aio.batteryreminder.ui.overlay.OverlayService
+import project.aio.batteryreminder.utils.PredictionEngine
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -32,6 +36,7 @@ class SettingsFragment : Fragment() {
 
     @Inject lateinit var preferencesManager: PreferencesManager
     @Inject lateinit var overlayService: OverlayService
+    @Inject lateinit var predictionEngine: PredictionEngine
 
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
@@ -98,6 +103,61 @@ class SettingsFragment : Fragment() {
             lifecycleScope.launch { preferencesManager.updateAlertDuration(seconds) }
         }
 
+        // PREDICTION SLIDER
+        binding.sliderPrediction.addOnChangeListener { _, value, _ ->
+            val seconds = value.toInt()
+            val minutes = seconds / 60
+            val secs = seconds % 60
+            binding.tvPredictionValue.text = String.format("%d min %02d sec", minutes, secs)
+        }
+
+        binding.sliderPrediction.addOnSliderTouchListener(object : com.google.android.material.slider.Slider.OnSliderTouchListener {
+            override fun onStartTrackingTouch(slider: com.google.android.material.slider.Slider) {}
+            override fun onStopTrackingTouch(slider: com.google.android.material.slider.Slider) {
+                lifecycleScope.launch { preferencesManager.updateEmergencyThreshold(slider.value.toInt()) }
+            }
+        })
+
+        // AUTO DIM SWITCH
+        binding.switchAutoDim.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked && !Settings.System.canWrite(requireContext())) {
+                Toast.makeText(context, "Permission required to dim screen", Toast.LENGTH_LONG).show()
+                val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS)
+                intent.data = Uri.parse("package:${requireContext().packageName}")
+                startActivity(intent)
+                binding.switchAutoDim.isChecked = false // Reset until granted
+            } else {
+                lifecycleScope.launch { preferencesManager.updateAutoDim(isChecked) }
+            }
+        }
+
+        // TEST PREDICTION BUTTON (REALTIME SIMULATION)
+        binding.btnTestPrediction.setOnClickListener {
+            if (!Settings.canDrawOverlays(requireContext())) {
+                Toast.makeText(context, "Grant Overlay Permission First", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
+            // Get Realtime Battery Info
+            val bm = requireContext().getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+            val currentLevel = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+
+            lifecycleScope.launch {
+                // Try to use real DB history
+                var estimatedSeconds = predictionEngine.calculateTimeRemaining(currentLevel)
+
+                if (estimatedSeconds <= 0) {
+                    Toast.makeText(context, "Learning... Simulating 90s left", Toast.LENGTH_SHORT).show()
+                    estimatedSeconds = 90 // Fallback simulation for testing UI
+                } else {
+                    Toast.makeText(context, "Based on History: ${estimatedSeconds}s left", Toast.LENGTH_SHORT).show()
+                }
+
+                // Trigger the Emergency Overlay with the calculated (or simulated) time
+                overlayService.showOverlay("SHUTDOWN IMMINENT", estimatedSeconds.toInt(), isEmergency = true)
+            }
+        }
+
         // TOGGLES
         binding.cardSound.setOnClickListener {
             val currentState = binding.ivSoundCheck.isVisible
@@ -158,6 +218,20 @@ class SettingsFragment : Fragment() {
                 }
                 binding.chipGroupDuration.check(chipId)
             }
+        }
+
+        // Prediction
+        lifecycleScope.launch {
+            preferencesManager.emergencyThreshold.collect {
+                binding.sliderPrediction.value = it.toFloat()
+                val minutes = it / 60
+                val secs = it % 60
+                binding.tvPredictionValue.text = String.format("%d min %02d sec", minutes, secs)
+            }
+        }
+
+        lifecycleScope.launch {
+            preferencesManager.autoDimEnabled.collect { binding.switchAutoDim.isChecked = it }
         }
 
         // Toggles
