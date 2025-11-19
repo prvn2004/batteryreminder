@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
@@ -28,43 +29,50 @@ class BatteryMonitorService : Service() {
     @Inject lateinit var overlayService: OverlayService
     @Inject lateinit var predictionEngine: PredictionEngine
 
-    // Use Default dispatcher for CPU intensive math, IO for DB writes
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private lateinit var powerManager: PowerManager
 
     private var thresholds = listOf<Threshold>()
     private var emergencySecondsLimit = 120
     private var lastLevel = -1
     private var lastStatus = -1
+
     private var isAlertActive = false
     private var isEmergencyActive = false
+    private val alertedLevels = HashSet<Int>()
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent == null) return
-
-            // ULTRA-LOW POWER CHECK:
-            // Extract only what is needed to decide if we proceed.
-            // Battery broadcasts fire on Temp/Voltage changes too. We ignore those to save battery.
             val rawLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val rawStatus = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-
-            if (rawLevel == lastLevel && rawStatus == lastStatus) {
-                return // Exit immediately, do zero work.
-            }
-
+            if (rawLevel == lastLevel && rawStatus == lastStatus) return
             checkBattery(intent, rawLevel, rawStatus)
+        }
+    }
+
+    private val screenStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF, Intent.ACTION_SCREEN_ON -> {
+                    predictionEngine.resetBuffer()
+                }
+            }
         }
     }
 
     override fun onCreate() {
         super.onCreate()
-        startForeground(1, createNotification("Optimized monitoring active..."))
+        powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        startForeground(1, createNotification("Smart monitoring active..."))
 
-        // Register receiver
-        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        registerReceiver(batteryReceiver, filter)
+        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val screenFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        }
+        registerReceiver(screenStateReceiver, screenFilter)
 
-        // Collect settings lazily
         serviceScope.launch(Dispatchers.IO) {
             launch { preferencesManager.thresholds.collect { thresholds = it } }
             launch { preferencesManager.emergencyThreshold.collect { emergencySecondsLimit = it } }
@@ -76,39 +84,37 @@ class BatteryMonitorService : Service() {
         val pct = ((rawLevel * 100) / scale.toFloat()).toInt()
         val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
 
-        // Update state trackers
         val levelChanged = pct != lastLevel
         lastLevel = pct
         lastStatus = status
 
         if (isCharging) {
-            // Reset prediction buffer when charging
             if (isEmergencyActive) isEmergencyActive = false
             if (isAlertActive) overlayService.removeOverlay()
             predictionEngine.resetBuffer()
+            alertedLevels.clear()
             return
         }
 
-        // --- PROCESSING LOGIC (Only runs if discharging) ---
+        if (pct > (lastLevel - 1)) alertedLevels.removeIf { it < pct }
 
         if (levelChanged) {
             serviceScope.launch {
-                // 1. Update Prediction Engine (In-Memory - Fast)
-                predictionEngine.addHistoryPoint(System.currentTimeMillis(), pct)
-
-                // 2. Asynchronously Log to DB (IO - Slow, but detached)
                 predictionEngine.logToDb(pct, false)
-
-                // 3. Check standard thresholds
                 checkThresholds(pct)
 
-                // 4. Check Prediction (Only at low battery to save CPU)
-                if (pct <= 20) {
-                    val secondsLeft = predictionEngine.estimateTimeRemainingLinearRegression()
-                    if (secondsLeft in 1 until emergencySecondsLimit && !isEmergencyActive) {
-                        isEmergencyActive = true
-                        withContext(Dispatchers.Main) {
-                            triggerEmergencyPrediction(secondsLeft)
+                val isScreenOn = powerManager.isInteractive
+                val isCritical = pct <= 10
+
+                if (isScreenOn || isCritical) {
+                    predictionEngine.addHistoryPoint(System.currentTimeMillis(), pct)
+                    if (pct <= 20) {
+                        val secondsLeft = predictionEngine.estimateTimeRemainingWeighted()
+                        if (secondsLeft in 1 until emergencySecondsLimit && !isEmergencyActive) {
+                            isEmergencyActive = true
+                            withContext(Dispatchers.Main) {
+                                triggerEmergencyPrediction(secondsLeft)
+                            }
                         }
                     }
                 }
@@ -118,12 +124,10 @@ class BatteryMonitorService : Service() {
 
     private fun checkThresholds(pct: Int) {
         if (isAlertActive || isEmergencyActive) return
-
         for (t in thresholds) {
-            // Simple exact match logic for efficiency, or crossing logic
-            // Assuming we trigger exactly on the drop
-            if (pct == t.percentage) {
+            if (pct == t.percentage && !alertedLevels.contains(pct)) {
                 triggerAlert("BATTERY EVENT", pct)
+                alertedLevels.add(pct)
                 break
             }
         }
@@ -154,13 +158,14 @@ class BatteryMonitorService : Service() {
             .setSmallIcon(R.drawable.ic_battery_std)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .setSilent(true) // Less intrusive
+            .setSilent(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
 
     override fun onDestroy() {
         try { unregisterReceiver(batteryReceiver) } catch (e: Exception) {}
+        try { unregisterReceiver(screenStateReceiver) } catch (e: Exception) {}
         serviceScope.cancel()
         super.onDestroy()
     }

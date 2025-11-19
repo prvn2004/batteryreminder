@@ -13,7 +13,7 @@
         android:paddingHorizontal="24dp"
         android:paddingBottom="64dp">
 
-        <!-- Title Centered with Top Margin -->
+        <!-- Title -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -144,7 +144,7 @@
                 android:textStyle="bold" android:layout_height="wrap_content" android:layout_width="wrap_content"/>
 
             <TextView
-                android:text="Calculates drain rate to predict shutdown. Alerts when time remaining is below:"
+                android:text="Calculates drain rate. Alerts when time remaining is below:"
                 android:textColor="@color/gray_light"
                 android:textSize="12sp"
                 android:layout_marginBottom="12dp" android:layout_height="wrap_content" android:layout_width="wrap_content"/>
@@ -169,15 +169,7 @@
                 android:textColor="@color/white"
                 android:gravity="end"/>
 
-            <com.google.android.material.switchmaterial.SwitchMaterial
-                android:id="@+id/switchAutoDim"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Auto-Dim Screen (Save Power)"
-                android:textColor="@color/white"
-                app:thumbTint="@color/white"
-                app:trackTint="@color/gray_light"
-                android:layout_marginTop="8dp"/>
+            <!-- SWITCH REMOVED FROM HERE -->
 
             <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/gray_light" android:layout_marginVertical="12dp" android:alpha="0.5"/>
 

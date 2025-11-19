@@ -1,4 +1,3 @@
-// ===== batteryreminder\app\src\main\java\project\aio\batteryreminder\data\PreferencesManager.kt =====
 package project.aio.batteryreminder.data
 
 import android.content.Context
@@ -27,14 +26,10 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
         val FLASH_ENABLED = booleanPreferencesKey("flash_enabled")
         val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
         val TTS_ENABLED = booleanPreferencesKey("tts_enabled")
-        val ALERT_DURATION = intPreferencesKey("alert_duration") // Seconds. -1 for infinite.
-
-        // New Prediction Keys
-        val EMERGENCY_THRESHOLD = intPreferencesKey("emergency_threshold_seconds") // Default 120s (2 mins)
-        val AUTO_DIM_ENABLED = booleanPreferencesKey("auto_dim_enabled")
+        val ALERT_DURATION = intPreferencesKey("alert_duration")
+        val EMERGENCY_THRESHOLD = intPreferencesKey("emergency_threshold_seconds")
     }
 
-    // Default thresholds: 20% and 80%
     val thresholds: Flow<List<Threshold>> = context.dataStore.data.map { preferences ->
         val json = preferences[THRESHOLDS_JSON]
         if (json.isNullOrEmpty()) {
@@ -51,10 +46,7 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     val vibrationEnabled: Flow<Boolean> = context.dataStore.data.map { it[VIBRATION_ENABLED] ?: true }
     val ttsEnabled: Flow<Boolean> = context.dataStore.data.map { it[TTS_ENABLED] ?: false }
     val alertDuration: Flow<Int> = context.dataStore.data.map { it[ALERT_DURATION] ?: 30 }
-
-    // Prediction Flows
     val emergencyThreshold: Flow<Int> = context.dataStore.data.map { it[EMERGENCY_THRESHOLD] ?: 120 }
-    val autoDimEnabled: Flow<Boolean> = context.dataStore.data.map { it[AUTO_DIM_ENABLED] ?: true }
 
     suspend fun updateAlertDuration(seconds: Int) {
         context.dataStore.edit { it[ALERT_DURATION] = seconds }
@@ -75,5 +67,4 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     suspend fun updateTts(enabled: Boolean) = context.dataStore.edit { it[TTS_ENABLED] = enabled }
 
     suspend fun updateEmergencyThreshold(seconds: Int) = context.dataStore.edit { it[EMERGENCY_THRESHOLD] = seconds }
-    suspend fun updateAutoDim(enabled: Boolean) = context.dataStore.edit { it[AUTO_DIM_ENABLED] = enabled }
 }
