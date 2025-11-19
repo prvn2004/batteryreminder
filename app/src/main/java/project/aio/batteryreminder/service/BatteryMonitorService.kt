@@ -1,3 +1,4 @@
+// ===== batteryreminder\app\src\main\java\project\aio\batteryreminder\service\BatteryMonitorService.kt =====
 package project.aio.batteryreminder.service
 
 import android.app.Notification
@@ -70,11 +71,10 @@ class BatteryMonitorService : Service() {
                 Intent.ACTION_SCREEN_OFF -> {
                     screenOffTime = System.currentTimeMillis()
                     screenOffLevel = lastLevel
-                    predictionEngine.resetBuffer()
+                    // Do NOT reset buffer on screen off; continuous prediction is better
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     if (ghostDrainEnabled && screenOffTime > 0) checkGhostDrain()
-                    predictionEngine.resetBuffer()
                 }
             }
         }
@@ -116,25 +116,30 @@ class BatteryMonitorService : Service() {
             predictionEngine.resetBuffer()
             alertedLevels.clear()
             hasTriggeredBedtimeToday = false
+            // Log charging state too so we know when to break the chain
+            serviceScope.launch { predictionEngine.logToDb(pct, true) }
             return
         }
 
         if (pct > (lastLevel - 1)) alertedLevels.removeIf { it < pct }
 
+        // Always log points to DB to ensure persistence works even if Service restarts
         if (levelChanged) {
             serviceScope.launch {
-                predictionEngine.logToDb(pct, false)
+                predictionEngine.logToDb(pct, false) // Log first!
+                predictionEngine.addHistoryPoint(System.currentTimeMillis(), pct) // Then Add to RAM
+
                 checkThresholds(pct)
                 checkBedtime(pct)
 
                 val isScreenOn = powerManager.isInteractive
-                val isCritical = pct <= 10
+                val isCritical = pct <= 15 // Increased critical check to 15%
 
                 if (isScreenOn || isCritical) {
-                    predictionEngine.addHistoryPoint(System.currentTimeMillis(), pct)
                     if (pct <= 20) {
                         val secondsLeft = predictionEngine.estimateTimeRemainingWeighted()
-                        if (secondsLeft in 1 until emergencySecondsLimit && !isEmergencyActive) {
+                        // Only alert if we have a valid prediction
+                        if (secondsLeft > 0 && secondsLeft in 1 until emergencySecondsLimit && !isEmergencyActive) {
                             isEmergencyActive = true
                             withContext(Dispatchers.Main) {
                                 triggerEmergencyPrediction(secondsLeft)
@@ -207,7 +212,7 @@ class BatteryMonitorService : Service() {
         val notification = NotificationCompat.Builder(this, "battery_monitor_channel")
             .setContentTitle(title)
             .setContentText(content)
-            .setSmallIcon(R.drawable.battery) // UPDATED
+            .setSmallIcon(R.drawable.battery)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
 
@@ -221,7 +226,7 @@ class BatteryMonitorService : Service() {
         return NotificationCompat.Builder(this, "battery_monitor_channel")
             .setContentTitle("AIO Monitor")
             .setContentText(content)
-            .setSmallIcon(R.drawable.battery) // UPDATED
+            .setSmallIcon(R.drawable.battery)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)

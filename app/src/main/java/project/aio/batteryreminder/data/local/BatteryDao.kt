@@ -15,7 +15,7 @@ interface BatteryDao {
     @Query("DELETE FROM battery_history WHERE timestamp < :threshold")
     suspend fun cleanOldData(threshold: Long)
 
-    // Kept for cold-start initialization if needed later
-    @Query("SELECT * FROM battery_history WHERE isCharging = 0 ORDER BY timestamp DESC LIMIT 20")
+    // CHANGED: Increased limit to 50 to ensure we capture enough points for the curve
+    @Query("SELECT * FROM battery_history WHERE isCharging = 0 ORDER BY timestamp DESC LIMIT 50")
     suspend fun getRecentDischargeHistory(): List<BatteryEntity>
 }

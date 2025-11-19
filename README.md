@@ -26,16 +26,13 @@ AIO Battery Monitor is built with a strict **Zero-Internet Architecture**.
 - ❌ No Cloud Backups.
 - ❌ No Ad Trackers.
 
-Every calculation, prediction, and log is stored locally using Room Database and DataStore. You can audit the source code to verify.
+Every calculation, prediction, and log is stored locally using Room Database and DataStore.
 
 ---
 
 ## 🧠 The Philosophy: Mind First, AI Second
-This project represents a new era of software engineering.
-- **The Vision & Logic:** Purely Human. The architecture, the safety algorithms, and the user experience were designed by human intuition (@praveen).
-- **The Code:** Heavily assisted by AI to ensure modern syntax, bug-free boilerplate, and rapid iteration.
-
-We believe in using AI as a power tool, not the architect.
+- **Vision & Logic:** Human-designed.
+- **Code:** AI-assisted.
 
 ---
 
@@ -43,44 +40,42 @@ We believe in using AI as a power tool, not the architect.
 
 | Feature | Description |
 | :--- | :--- |
-| **🔌 Cable Diagnostic** | Benchmarks your charging cable's quality by analyzing voltage ripple, stability, and wattage throughput. Detects bad cables instantly. |
-| **🔮 AI Prediction** | Uses a weighted regression algorithm to predict "Time to Empty" or "Time to Full" based on your actual usage patterns. |
-| **👻 Ghost Drain Detective** | Monitors battery loss while the screen is off. Alerts you if background apps are draining power excessively. |
-| **🌡️ Thermal Watchdog** | Constantly monitors battery temperature. Triggers an alarm if the device exceeds safe thermal limits (42°C+). |
-| **🚨 Emergency Overlay** | A full-screen, high-visibility alert system for critical battery levels or thermal runaways. |
-| **🗣️ Smart Alerts** | Customizable triggers using TTS (Voice), Strobe Flash, and Vibration patterns. |
+| **🔌 Cable Diagnostic** | Benchmarks charging cable quality. |
+| **🔮 AI Prediction** | Predicts "Time to Empty" / "Time to Full." |
+| **👻 Ghost Drain Detective** | Detects background drain while screen is off. |
+| **🌡️ Thermal Watchdog** | Tracks battery temperature. |
+| **🚨 Emergency Overlay** | Critical alerts system. |
+| **🗣️ Smart Alerts** | Voice, flash, vibration triggers. |
 
 ---
 
 ## 🛠️ Tech Stack
 
-*   **Language:** Kotlin (Mobile First)
-*   **Architecture:** MVVM (Model-View-ViewModel) + Clean Architecture principles
-*   **Dependency Injection:** Hilt (Dagger)
-*   **Concurrency:** Coroutines & Flow
-*   **Local Data:** Room Database & Proto DataStore
-*   **UI:** XML ViewBinding with Material Design 3 Components
-*   **Background Work:** Foreground Services (Special Use type)
+- Kotlin
+- MVVM + Clean Architecture
+- Hilt
+- Coroutines / Flow
+- Room + Proto DataStore
+- Material 3
+- Foreground Services
 
 ---
 
 ## 🤝 Fork & Reuse
-This project is open for everyone.
-- **Learn:** See how Foreground Services and BatteryManager APIs work.
-- **Fork:** Create your own version.
-- **Reuse:** Take the `CableBenchmarkEngine` or `PredictionEngine` modules and use them in your app.
 
-**Star this repo if you find it useful!** ⭐
+Use any module freely. Star the repo if you vibe with it ⭐
+
+---
 
 ## 📸 App Screenshots
 
 <div align="center">
 
-|                                    |                                    |                                    |
-|:----------------------------------:|:----------------------------------:|:----------------------------------:|
-| <img src="./1.jpeg" width="100" /> | <img src="./2.jpeg" width="100" /> | <img src="./3.jpeg" width="100" /> |
-| <img src="./4.jpeg" width="100" /> | <img src="./5.jpeg" width="100" /> | <img src="./6.jpeg" width="100" /> |
-|                                    | <img src="./7.jpeg" width="100" /> |                                    |
+|                                             |                                             |                                             |
+|:-------------------------------------------:|:-------------------------------------------:|:-------------------------------------------:|
+| <img src="./assets/1.jpeg" width="100" />   | <img src="./assets/1.jpeg" width="100" />   | <img src="./assets/1.jpeg" width="100" />   |
+| <img src="./assets/1.jpeg" width="100" />   | <img src="./assets/1.jpeg" width="100" />   | <img src="./assets/1.jpeg" width="100" />   |
+|                                             | <img src="./assets/1.jpeg" width="100" />   |                                             |
 
 </div>
 
