@@ -8,4 +8,11 @@
     <color name="green">#33FF33</color>
     <color name="orange">#FFAA00</color>
     <color name="transparent">#00000000</color>
+
+    <!-- Charger Benchmarker Grading Colors -->
+    <color name="grade_a">#00E676</color> <!-- Bright Green -->
+    <color name="grade_b">#CDDC39</color> <!-- Lime -->
+    <color name="grade_c">#FFC107</color> <!-- Amber -->
+    <color name="grade_d">#FF9800</color> <!-- Orange -->
+    <color name="grade_f">#FF5252</color> <!-- Red -->
 </resources>

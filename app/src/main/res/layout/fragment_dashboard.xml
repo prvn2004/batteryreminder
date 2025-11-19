@@ -75,7 +75,8 @@
             android:layout_height="wrap_content"
             android:columnCount="2"
             android:rowCount="2"
-            android:useDefaultMargins="true">
+            android:useDefaultMargins="true"
+            android:layout_marginBottom="24dp">
 
             <!-- Voltage Card -->
             <LinearLayout
@@ -95,7 +96,6 @@
                     android:textColor="@color/gray_light"
                     android:textSize="12sp"
                     android:textStyle="bold"/>
-
                 <TextView
                     android:id="@+id/tvVoltageVal"
                     android:layout_width="wrap_content"
@@ -125,7 +125,6 @@
                     android:textColor="@color/gray_light"
                     android:textSize="12sp"
                     android:textStyle="bold"/>
-
                 <TextView
                     android:id="@+id/tvTempVal"
                     android:layout_width="wrap_content"
@@ -154,7 +153,6 @@
                     android:textColor="@color/gray_light"
                     android:textSize="12sp"
                     android:textStyle="bold"/>
-
                 <TextView
                     android:id="@+id/tvWattageVal"
                     android:layout_width="wrap_content"
@@ -184,7 +182,6 @@
                     android:textColor="@color/gray_light"
                     android:textSize="12sp"
                     android:textStyle="bold"/>
-
                 <TextView
                     android:id="@+id/tvPredictionVal"
                     android:layout_width="wrap_content"
@@ -197,6 +194,82 @@
             </LinearLayout>
 
         </GridLayout>
+
+        <!-- NEW: CABLE BENCHMARKER CARD -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card_outlined"
+            android:padding="20dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="CABLE BENCHMARK"
+                        android:textColor="@color/gray_light"
+                        android:textStyle="bold"
+                        android:textSize="12sp"
+                        android:letterSpacing="0.1"/>
+
+                    <TextView
+                        android:id="@+id/tvBenchmarkStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Test Charger Stability"
+                        android:textColor="@color/white"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvBenchmarkGrade"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="--"
+                    android:textColor="@color/gray_light"
+                    android:textSize="36sp"
+                    android:textStyle="bold"
+                    android:paddingEnd="8dp"/>
+            </LinearLayout>
+
+            <!-- Test Progress Bar (Hidden by default) -->
+            <ProgressBar
+                android:id="@+id/progressBenchmark"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:max="100"
+                android:progress="0"
+                android:visibility="gone"
+                android:progressTint="@color/white"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRunBenchmark"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="START TEST"
+                android:textColor="@color/black"
+                android:textStyle="bold"
+                app:backgroundTint="@color/white"
+                app:cornerRadius="8dp"/>
+
+        </LinearLayout>
 
     </LinearLayout>
 
