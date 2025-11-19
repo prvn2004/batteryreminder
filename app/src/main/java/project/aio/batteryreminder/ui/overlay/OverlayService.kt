@@ -1,11 +1,8 @@
 package project.aio.batteryreminder.ui.overlay
 
 import android.content.Context
-import android.content.res.Resources
 import android.graphics.PixelFormat
-import android.graphics.drawable.GradientDrawable
 import android.os.Build
-import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.View
@@ -36,8 +33,6 @@ class OverlayService @Inject constructor(
         if (overlayView != null) return
 
         windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-
-        // Wrap Context for Material Theme support
         val themeContext = ContextThemeWrapper(context, R.style.Theme_BatteryReminder)
         val layoutInflater = LayoutInflater.from(themeContext)
 
@@ -62,7 +57,6 @@ class OverlayService @Inject constructor(
             PixelFormat.TRANSLUCENT
         )
 
-        // Ensure border hugs the notch area
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
@@ -85,19 +79,9 @@ class OverlayService @Inject constructor(
 
             tvPercentage.setTextColor(color)
 
-            // Helper to convert DP to Pixels
-            val strokeWidthPx = TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP,
-                24f, // 24dp thickness for the border
-                context.resources.displayMetrics
-            ).toInt()
-
-            // Update Border Stroke
-            val borderDrawable = borderView.background as? GradientDrawable
-            borderDrawable?.mutate()
-            borderDrawable?.setStroke(strokeWidthPx, color)
-
-            // Note: Corner radius is handled in XML (48dp) to match screen curvature
+            // --- CUSTOM VIEW UPDATE ---
+            // We access the custom BracketBorderView directly
+            borderView.setBorderColor(color)
 
             btnDismiss.setOnClickListener { removeOverlay() }
         }
@@ -122,10 +106,9 @@ class OverlayService @Inject constructor(
             if (vib) alertManager.vibrate()
             if (flash) alertManager.startStrobe(this)
 
-            // Visual Glitch Loop
             launch {
                 while (isActive) {
-                    // Pulse the border opacity
+                    // Pulse the custom border view
                     binding?.borderView?.animate()?.alpha(1.0f)?.setDuration(150)?.start()
                     binding?.whiteFlashOverlay?.alpha = 0.15f
                     delay(200)

@@ -5,13 +5,11 @@
     android:layout_height="match_parent"
     android:background="#B3000000"> <!-- 70% Black Dim -->
 
-    <!-- 1. The Border Layer (Assistant Style) -->
-    <!-- Uses bg_thick_border drawable -->
-    <View
+    <!-- 1. The Custom Bracket Border Layer -->
+    <project.aio.batteryreminder.ui.overlay.BracketBorderView
         android:id="@+id/borderView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@drawable/bg_thick_border" />
+        android:layout_height="match_parent" />
 
     <!-- 2. The Flash Layer -->
     <View
