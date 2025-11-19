@@ -11,32 +11,44 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.core.content.ContextCompat
-import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import project.aio.batteryreminder.R
 import project.aio.batteryreminder.databinding.FragmentDashboardBinding
+import project.aio.batteryreminder.utils.CableBenchmarkEngine
 import project.aio.batteryreminder.utils.PredictionEngine
 import javax.inject.Inject
 import kotlin.math.abs
-import kotlin.math.pow
-import kotlin.math.sqrt
 
 @AndroidEntryPoint
 class DashboardFragment : Fragment() {
 
     @Inject lateinit var predictionEngine: PredictionEngine
+    @Inject lateinit var benchmarkEngine: CableBenchmarkEngine
+
     private var _binding: FragmentDashboardBinding? = null
     private val binding get() = _binding!!
 
     private var isBenchmarking = false
+    private var benchmarkJob: Job? = null
+
+    // Cache the last broadcast so our live loop has Voltage/Temp data
+    private var lastBatteryIntent: Intent? = null
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            intent?.let { updateUI(it) }
+            intent?.let {
+                lastBatteryIntent = it
+                // Immediate update on event
+                updateUI(it)
+            }
         }
     }
 
@@ -51,33 +63,40 @@ class DashboardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.btnRunBenchmark.setOnClickListener {
-            val intent = requireContext().registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-            val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-            val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
-
-            if (!isCharging) {
-                Toast.makeText(context, "Please plug in a charger first!", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+        // 1. Start Live Polling Loop (The FIX for live data)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (isActive) {
+                    // Force UI update using last known intent (or fetch new sticky)
+                    val sticky = lastBatteryIntent ?: requireContext().registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                    sticky?.let { updateUI(it) }
+                    delay(1000) // Update every 1 second
+                }
             }
+        }
 
-            runCableBenchmark()
+        binding.btnRunBenchmark.setOnClickListener {
+            if (isBenchmarking) {
+                stopBenchmark()
+            } else {
+                startBenchmark()
+            }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        requireContext().registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        lastBatteryIntent = requireContext().registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
     }
 
     override fun onPause() {
         super.onPause()
         requireContext().unregisterReceiver(batteryReceiver)
+        if(isBenchmarking) stopBenchmark()
     }
 
     private fun updateUI(intent: Intent) {
-        // Prevent UI jitter if benchmark is running
-        if (isBenchmarking) return
+        if (isBenchmarking) return // Don't refresh main UI while running test
 
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0)
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
@@ -105,6 +124,7 @@ class DashboardFragment : Fragment() {
         binding.tvStatusVal.text = if (isCharging) "CHARGING" else "DRAINING"
         binding.tvStatusVal.setTextColor(ContextCompat.getColor(requireContext(), if(isCharging) R.color.green else R.color.white))
 
+        // Calculates LIVE watts (fetching current instantly)
         val watts = calculateWatts(voltageMv)
         binding.tvWattageVal.text = String.format("%.1fW", watts)
 
@@ -130,85 +150,94 @@ class DashboardFragment : Fragment() {
     }
 
     private fun calculateWatts(voltageMv: Int): Double {
+        // Query instant current property
         val batteryManager = requireContext().getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         val currentUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+
         val amps = abs(currentUa) / 1_000_000.0
         val volts = voltageMv / 1000.0
         return amps * volts
     }
 
-    private fun runCableBenchmark() {
+    // --- BENCHMARK LOGIC ---
+
+    private fun startBenchmark() {
+        val intent = requireContext().registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+
+        if (!isCharging) {
+            Toast.makeText(context, "Please connect charger first!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         isBenchmarking = true
-        binding.btnRunBenchmark.isEnabled = false
-        binding.btnRunBenchmark.text = "TESTING..."
+        binding.btnRunBenchmark.text = "CANCEL TEST"
         binding.progressBenchmark.visibility = View.VISIBLE
-        binding.progressBenchmark.progress = 0
-        binding.tvBenchmarkStatus.text = "Sampling Power Stability..."
-        binding.tvBenchmarkGrade.text = "--"
+        binding.layoutBenchmarkResults.visibility = View.GONE
+        binding.tvBenchmarkWarning.visibility = View.GONE
+        binding.tvBenchmarkGrade.text = "..."
         binding.tvBenchmarkGrade.setTextColor(ContextCompat.getColor(requireContext(), R.color.gray_light))
 
-        lifecycleScope.launch {
-            val samples = mutableListOf<Double>()
-            // Sample for 4 seconds (20 samples)
-            for (i in 1..20) {
-                val intent = requireContext().registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-                val voltage = intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0
-                val watts = calculateWatts(voltage)
-                samples.add(watts)
-
-                binding.progressBenchmark.progress = (i * 5) // 20 * 5 = 100
-                delay(200)
-            }
-
-            // Analyze Data
-            val average = samples.average()
-
-            // Calculate Standard Deviation (Jitter)
-            var sumDiffs = 0.0
-            for (s in samples) {
-                sumDiffs += (s - average).pow(2)
-            }
-            val stdDev = sqrt(sumDiffs / samples.size)
-
-            // Grading Logic (Lower StdDev = Better Cable)
-            val grade: String
-            val colorRes: Int
-            val message: String
-
-            when {
-                stdDev < 0.2 -> {
-                    grade = "A"
-                    colorRes = R.color.grade_a
-                    message = "Excellent Stability"
-                }
-                stdDev < 0.5 -> {
-                    grade = "B"
-                    colorRes = R.color.grade_b
-                    message = "Good Quality"
-                }
-                stdDev < 1.0 -> {
-                    grade = "C"
-                    colorRes = R.color.grade_c
-                    message = "Average / Unstable"
-                }
-                else -> {
-                    grade = "F"
-                    colorRes = R.color.grade_f
-                    message = "High Instability (Bad Cable)"
+        benchmarkJob = lifecycleScope.launch {
+            benchmarkEngine.runBenchmark().collect { state ->
+                when(state) {
+                    is CableBenchmarkEngine.BenchmarkState.Running -> {
+                        binding.progressBenchmark.progress = state.progress
+                        binding.tvBenchmarkStatus.text = "Analyzing: ${String.format("%.1f", state.currentWattage)}W"
+                    }
+                    is CableBenchmarkEngine.BenchmarkState.Completed -> {
+                        isBenchmarking = false
+                        displayResults(state.result)
+                    }
+                    is CableBenchmarkEngine.BenchmarkState.Error -> {
+                        isBenchmarking = false
+                        binding.tvBenchmarkStatus.text = "Error: ${state.message}"
+                        resetBenchmarkUI()
+                    }
+                    is CableBenchmarkEngine.BenchmarkState.Idle -> {}
                 }
             }
-
-            // Display Result
-            binding.tvBenchmarkGrade.text = grade
-            binding.tvBenchmarkGrade.setTextColor(ContextCompat.getColor(requireContext(), colorRes))
-
-            binding.tvBenchmarkStatus.text = "$message\nAvg: ${String.format("%.1f", average)}W  Jitter: ±${String.format("%.2f", stdDev)}"
-
-            binding.btnRunBenchmark.text = "TEST AGAIN"
-            binding.btnRunBenchmark.isEnabled = true
-            binding.progressBenchmark.visibility = View.GONE
-            isBenchmarking = false
         }
+    }
+
+    private fun stopBenchmark() {
+        benchmarkJob?.cancel()
+        resetBenchmarkUI()
+        binding.tvBenchmarkStatus.text = "Test Cancelled"
+    }
+
+    private fun displayResults(result: CableBenchmarkEngine.BenchmarkResult) {
+        binding.progressBenchmark.visibility = View.GONE
+        binding.btnRunBenchmark.text = "TEST AGAIN"
+
+        val colorRes = when (result.grade.replace("+", "")) {
+            "A" -> R.color.grade_a
+            "B" -> R.color.grade_b
+            "C" -> R.color.grade_c
+            else -> R.color.grade_f
+        }
+
+        binding.tvBenchmarkGrade.text = result.grade
+        binding.tvBenchmarkGrade.setTextColor(ContextCompat.getColor(requireContext(), colorRes))
+        binding.tvBenchmarkStatus.text = "Score: ${result.score}/100"
+
+        binding.layoutBenchmarkResults.visibility = View.VISIBLE
+        binding.tvResultSpeed.text = "Avg: ${String.format("%.1f", result.avgWattage)}W"
+        binding.tvResultRipple.text = "Ripple: ${result.voltageRipple}mV"
+        binding.tvResultStability.text = "Stability: ${String.format("%.1f", result.stabilityScore)}/10"
+        binding.tvResultType.text = result.chargingType
+
+        if (result.warning != null) {
+            binding.tvBenchmarkWarning.visibility = View.VISIBLE
+            binding.tvBenchmarkWarning.text = "Note: ${result.warning}"
+        }
+    }
+
+    private fun resetBenchmarkUI() {
+        isBenchmarking = false
+        binding.progressBenchmark.visibility = View.GONE
+        binding.btnRunBenchmark.text = "START DIAGNOSTIC"
     }
 
     override fun onDestroyView() {
