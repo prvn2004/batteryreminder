@@ -1,3 +1,4 @@
+// ===== batteryreminder\app\src\main\java\project\aio\batteryreminder\service\BatteryMonitorService.kt =====
 package project.aio.batteryreminder.service
 
 import android.app.Notification
@@ -19,93 +20,113 @@ import project.aio.batteryreminder.ui.MainActivity
 import project.aio.batteryreminder.ui.overlay.OverlayService
 import project.aio.batteryreminder.utils.PredictionEngine
 import javax.inject.Inject
-import kotlin.math.abs
 
 @AndroidEntryPoint
 class BatteryMonitorService : Service() {
 
     @Inject lateinit var preferencesManager: PreferencesManager
     @Inject lateinit var overlayService: OverlayService
-    @Inject lateinit var predictionEngine: PredictionEngine // NEW
+    @Inject lateinit var predictionEngine: PredictionEngine
 
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    // Use Default dispatcher for CPU intensive math, IO for DB writes
+    private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private var thresholds = listOf<Threshold>()
     private var emergencySecondsLimit = 120
     private var lastLevel = -1
+    private var lastStatus = -1
     private var isAlertActive = false
-    private var isEmergencyActive = false // To track prediction alert
+    private var isEmergencyActive = false
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            intent?.let { checkBattery(it) }
+            if (intent == null) return
+
+            // ULTRA-LOW POWER CHECK:
+            // Extract only what is needed to decide if we proceed.
+            // Battery broadcasts fire on Temp/Voltage changes too. We ignore those to save battery.
+            val rawLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val rawStatus = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+
+            if (rawLevel == lastLevel && rawStatus == lastStatus) {
+                return // Exit immediately, do zero work.
+            }
+
+            checkBattery(intent, rawLevel, rawStatus)
         }
     }
 
     override fun onCreate() {
         super.onCreate()
-        startForeground(1, createNotification("Monitoring active..."))
-        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        startForeground(1, createNotification("Optimized monitoring active..."))
 
-        serviceScope.launch {
-            preferencesManager.thresholds.collect { thresholds = it }
-        }
-        serviceScope.launch {
-            preferencesManager.emergencyThreshold.collect { emergencySecondsLimit = it }
+        // Register receiver
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        registerReceiver(batteryReceiver, filter)
+
+        // Collect settings lazily
+        serviceScope.launch(Dispatchers.IO) {
+            launch { preferencesManager.thresholds.collect { thresholds = it } }
+            launch { preferencesManager.emergencyThreshold.collect { emergencySecondsLimit = it } }
         }
     }
 
-    private fun checkBattery(intent: Intent) {
-        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-        val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+    private fun checkBattery(intent: Intent, rawLevel: Int, status: Int) {
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+        val pct = ((rawLevel * 100) / scale.toFloat()).toInt()
         val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
 
-        val pct = ((level * 100) / scale.toFloat()).toInt()
+        // Update state trackers
+        val levelChanged = pct != lastLevel
+        lastLevel = pct
+        lastStatus = status
 
-        if (lastLevel == -1) {
-            lastLevel = pct
+        if (isCharging) {
+            // Reset prediction buffer when charging
+            if (isEmergencyActive) isEmergencyActive = false
+            if (isAlertActive) overlayService.removeOverlay()
+            predictionEngine.resetBuffer()
             return
         }
 
-        // 1. LOG DATA FOR LEARNING (If level changed)
-        if (pct != lastLevel) {
+        // --- PROCESSING LOGIC (Only runs if discharging) ---
+
+        if (levelChanged) {
             serviceScope.launch {
-                predictionEngine.logBatteryState(pct, isCharging)
-            }
-        }
+                // 1. Update Prediction Engine (In-Memory - Fast)
+                predictionEngine.addHistoryPoint(System.currentTimeMillis(), pct)
 
-        // 2. STANDARD THRESHOLD CHECKS
-        if (pct != lastLevel && !isAlertActive && !isEmergencyActive) {
-            for (t in thresholds) {
-                val target = t.percentage
-                val crossedDown = lastLevel > target && pct <= target
-                val crossedUp = lastLevel < target && pct >= target
+                // 2. Asynchronously Log to DB (IO - Slow, but detached)
+                predictionEngine.logToDb(pct, false)
 
-                if (crossedDown || crossedUp) {
-                    triggerAlert("BATTERY EVENT", pct)
-                    break
+                // 3. Check standard thresholds
+                checkThresholds(pct)
+
+                // 4. Check Prediction (Only at low battery to save CPU)
+                if (pct <= 20) {
+                    val secondsLeft = predictionEngine.estimateTimeRemainingLinearRegression()
+                    if (secondsLeft in 1 until emergencySecondsLimit && !isEmergencyActive) {
+                        isEmergencyActive = true
+                        withContext(Dispatchers.Main) {
+                            triggerEmergencyPrediction(secondsLeft)
+                        }
+                    }
                 }
             }
         }
+    }
 
-        // 3. INTELLIGENT PREDICTION CHECK (Only when discharging)
-        if (!isCharging && pct < 15) { // Only run expensive math on low battery
-            serviceScope.launch {
-                val secondsLeft = predictionEngine.calculateTimeRemaining(pct)
+    private fun checkThresholds(pct: Int) {
+        if (isAlertActive || isEmergencyActive) return
 
-                // If valid prediction AND time is less than limit AND not already alerting
-                if (secondsLeft > 0 && secondsLeft < emergencySecondsLimit && !isEmergencyActive) {
-                    isEmergencyActive = true
-                    triggerEmergencyPrediction(secondsLeft)
-                }
+        for (t in thresholds) {
+            // Simple exact match logic for efficiency, or crossing logic
+            // Assuming we trigger exactly on the drop
+            if (pct == t.percentage) {
+                triggerAlert("BATTERY EVENT", pct)
+                break
             }
-        } else if (isCharging) {
-            isEmergencyActive = false // Reset if charged
-            if (isAlertActive) overlayService.removeOverlay() // Auto dismiss overlay if plugged in
         }
-
-        lastLevel = pct
     }
 
     private fun triggerAlert(message: String, percentage: Int) {
@@ -119,13 +140,10 @@ class BatteryMonitorService : Service() {
 
     private fun triggerEmergencyPrediction(secondsLeft: Long) {
         if (android.provider.Settings.canDrawOverlays(this)) {
-            CoroutineScope(Dispatchers.Main).launch {
-                overlayService.showOverlay("SHUTDOWN IMMINENT", secondsLeft.toInt(), isEmergency = true)
-            }
+            overlayService.showOverlay("SHUTDOWN IMMINENT", secondsLeft.toInt(), isEmergency = true)
         }
     }
 
-    // ... createNotification / onDestroy ...
     private fun createNotification(content: String): Notification {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
@@ -136,6 +154,7 @@ class BatteryMonitorService : Service() {
             .setSmallIcon(R.drawable.ic_battery_std)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setSilent(true) // Less intrusive
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
