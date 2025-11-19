@@ -71,7 +71,6 @@ class BatteryMonitorService : Service() {
                 Intent.ACTION_SCREEN_OFF -> {
                     screenOffTime = System.currentTimeMillis()
                     screenOffLevel = lastLevel
-                    // Do NOT reset buffer on screen off; continuous prediction is better
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     if (ghostDrainEnabled && screenOffTime > 0) checkGhostDrain()
@@ -116,29 +115,30 @@ class BatteryMonitorService : Service() {
             predictionEngine.resetBuffer()
             alertedLevels.clear()
             hasTriggeredBedtimeToday = false
-            // Log charging state too so we know when to break the chain
             serviceScope.launch { predictionEngine.logToDb(pct, true) }
             return
         }
 
         if (pct > (lastLevel - 1)) alertedLevels.removeIf { it < pct }
 
-        // Always log points to DB to ensure persistence works even if Service restarts
         if (levelChanged) {
             serviceScope.launch {
-                predictionEngine.logToDb(pct, false) // Log first!
-                predictionEngine.addHistoryPoint(System.currentTimeMillis(), pct) // Then Add to RAM
-
+                predictionEngine.logToDb(pct, false)
+                predictionEngine.addHistoryPoint(System.currentTimeMillis(), pct)
                 checkThresholds(pct)
                 checkBedtime(pct)
 
                 val isScreenOn = powerManager.isInteractive
-                val isCritical = pct <= 15 // Increased critical check to 15%
+                val isCritical = pct <= 15
 
                 if (isScreenOn || isCritical) {
                     if (pct <= 20) {
-                        val secondsLeft = predictionEngine.estimateTimeRemainingWeighted()
-                        // Only alert if we have a valid prediction
+                        // Try Hybrid first, fallback to Weighted
+                        var secondsLeft = predictionEngine.getHybridTimeRemaining()
+                        if (secondsLeft <= 0) {
+                            secondsLeft = predictionEngine.estimateTimeRemainingWeighted()
+                        }
+
                         if (secondsLeft > 0 && secondsLeft in 1 until emergencySecondsLimit && !isEmergencyActive) {
                             isEmergencyActive = true
                             withContext(Dispatchers.Main) {

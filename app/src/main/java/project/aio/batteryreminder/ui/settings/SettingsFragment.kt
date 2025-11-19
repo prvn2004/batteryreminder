@@ -1,3 +1,4 @@
+// ===== batteryreminder\app\src\main\java\project\aio\batteryreminder\ui\settings\SettingsFragment.kt =====
 package project.aio.batteryreminder.ui.settings
 
 import android.app.Activity
@@ -128,7 +129,13 @@ class SettingsFragment : Fragment() {
             }
 
             lifecycleScope.launch {
-                var estimatedSeconds = predictionEngine.estimateTimeRemainingWeighted()
+                // 1. Try Hybrid
+                var estimatedSeconds = predictionEngine.getHybridTimeRemaining()
+                // 2. Fallback
+                if (estimatedSeconds <= 0) {
+                    estimatedSeconds = predictionEngine.estimateTimeRemainingWeighted()
+                }
+
                 if (estimatedSeconds <= 0) {
                     Toast.makeText(context, "Learning... Simulating 90s left", Toast.LENGTH_SHORT).show()
                     estimatedSeconds = 90
@@ -174,10 +181,8 @@ class SettingsFragment : Fragment() {
             }
         }
 
-        // NEW LISTENER FOR GITHUB BUTTON
         binding.btnSettingsGithub.setOnClickListener {
             try {
-                // Replace with your actual repo URL
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/prvn2004/batteryreminder"))
                 startActivity(intent)
             } catch (e: Exception) {
@@ -217,7 +222,6 @@ class SettingsFragment : Fragment() {
             }
         }
 
-        // New Feature Observers
         lifecycleScope.launch { preferencesManager.ghostDrainEnabled.collect { binding.switchGhost.isChecked = it } }
         lifecycleScope.launch { preferencesManager.thermalAlarmEnabled.collect { binding.switchThermal.isChecked = it } }
         lifecycleScope.launch { preferencesManager.bedtimeReminderEnabled.collect { binding.switchBedtime.isChecked = it } }
@@ -243,7 +247,6 @@ class SettingsFragment : Fragment() {
     private fun updateCardState(card: View, checkIcon: View, isActive: Boolean) {
         checkIcon.isVisible = isActive
         card.setBackgroundResource(if (isActive) R.drawable.bg_card_filled else R.drawable.bg_card_outlined)
-
         val container = card as? ViewGroup
         changeTextColorRecursively(container, isActive)
     }

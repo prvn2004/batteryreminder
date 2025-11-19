@@ -1,3 +1,4 @@
+// ===== batteryreminder\app\src\main\java\project\aio\batteryreminder\ui\dashboard\DashboardFragment.kt =====
 package project.aio.batteryreminder.ui.dashboard
 
 import android.content.BroadcastReceiver
@@ -63,11 +64,11 @@ class DashboardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // 1. Start Live Polling Loop (The FIX for live data)
+        // 1. Start Live Polling Loop
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 while (isActive) {
-                    // Force UI update using last known intent (or fetch new sticky)
+                    // Force UI update using last known intent
                     val sticky = lastBatteryIntent ?: requireContext().registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
                     sticky?.let { updateUI(it) }
                     delay(1000) // Update every 1 second
@@ -96,7 +97,7 @@ class DashboardFragment : Fragment() {
     }
 
     private fun updateUI(intent: Intent) {
-        if (isBenchmarking) return // Don't refresh main UI while running test
+        if (isBenchmarking) return
 
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0)
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
@@ -124,13 +125,21 @@ class DashboardFragment : Fragment() {
         binding.tvStatusVal.text = if (isCharging) "CHARGING" else "DRAINING"
         binding.tvStatusVal.setTextColor(ContextCompat.getColor(requireContext(), if(isCharging) R.color.green else R.color.white))
 
-        // Calculates LIVE watts (fetching current instantly)
+        // Calculates LIVE watts
         val watts = calculateWatts(voltageMv)
         binding.tvWattageVal.text = String.format("%.1fW", watts)
 
         lifecycleScope.launch {
             predictionEngine.addHistoryPoint(System.currentTimeMillis(), pct)
-            val secondsLeft = predictionEngine.estimateTimeRemainingWeighted()
+
+            // --- NEW PREDICTION LOGIC ---
+            // 1. Try Hybrid (Instant/Sensor based)
+            var secondsLeft = predictionEngine.getHybridTimeRemaining()
+
+            // 2. Fallback to Weighted (History based) if Hybrid returns error/-1
+            if (secondsLeft <= 0) {
+                secondsLeft = predictionEngine.estimateTimeRemainingWeighted()
+            }
 
             if (secondsLeft > 0) {
                 val mins = secondsLeft / 60
@@ -150,17 +159,14 @@ class DashboardFragment : Fragment() {
     }
 
     private fun calculateWatts(voltageMv: Int): Double {
-        // Query instant current property
         val batteryManager = requireContext().getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         val currentUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-
         val amps = abs(currentUa) / 1_000_000.0
         val volts = voltageMv / 1000.0
         return amps * volts
     }
 
-    // --- BENCHMARK LOGIC ---
-
+    // --- BENCHMARK LOGIC REMAINS SAME ---
     private fun startBenchmark() {
         val intent = requireContext().registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1

@@ -46,7 +46,7 @@ class OverlayService @Inject constructor(
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
-        // Standard params - NO screen brightness dimming here
+        // Standard params
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -107,16 +107,33 @@ class OverlayService @Inject constructor(
 
             launch {
                 var timeLeft = value
-                // Ensure text is large for countdown
+
+                // Default size for percentage or short timer
                 if(isEmergency) binding?.tvPercentage?.textSize = 72f
 
                 while (isActive) {
                     if (isEmergency) {
-                        val mins = timeLeft / 60
+                        // --- NEW TIME FORMATTING LOGIC ---
+                        val days = timeLeft / 86400
+                        val hours = (timeLeft % 86400) / 3600
+                        val mins = (timeLeft % 3600) / 60
                         val secs = timeLeft % 60
-                        val timeStr = String.format("%02d:%02d", mins, secs)
+
+                        val timeStr = when {
+                            days > 0 -> String.format("%d:%02d:%02d:%02d", days, hours, mins, secs) // 1:05:30:59
+                            hours > 0 -> String.format("%d:%02d:%02d", hours, mins, secs)            // 1:30:59
+                            else -> String.format("%02d:%02d", mins, secs)                           // 59:30
+                        }
+
+                        // Dynamic Text Sizing to prevent wrapping
+                        val newSize = when {
+                            timeStr.length > 8 -> 42f  // d:hh:mm:ss
+                            timeStr.length > 5 -> 56f  // h:mm:ss
+                            else -> 72f                // mm:ss
+                        }
 
                         if (binding?.tvPercentage?.text != timeStr) {
+                            binding?.tvPercentage?.textSize = newSize
                             binding?.tvPercentage?.text = timeStr
                         }
 
