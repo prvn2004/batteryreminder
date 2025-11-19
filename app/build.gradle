@@ -1,3 +1,4 @@
+// ===== batteryreminder\app\build.gradle =====
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -13,14 +14,44 @@ android {
         applicationId "project.aio.batteryreminder"
         minSdk 24
         targetSdk 36
-        versionCode 1
-        versionName "1.0"
+
+        // CI/CD: Dynamic Versioning
+        // Locally: 1, "1.0-dev"
+        // CI: Uses GitHub Run Number (e.g., 45) -> "1.0.45"
+        def buildNumber = System.getenv("BUILD_NUMBER")?.toInteger() ?: 1
+        versionCode buildNumber
+        versionName "1.0.${buildNumber}"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        release {
+            // CI/CD: Load keystore from file path injected by CI or local properties
+            // This ensures local builds don't crash if keys are missing.
+            def keystorePath = System.getenv("KEYSTORE_PATH") ?: "release-key.jks"
+            def keystoreFile = file(keystorePath)
+            def isCI = System.getenv("CI") == "true"
+
+            // Only configure signing if the file exists (CI injects it) or specific env vars are set
+            if (keystoreFile.exists() || isCI) {
+                storeFile keystoreFile
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+            } else {
+                // Fallback: You can use debug keys here if you want local signed releases,
+                // but usually leaving it empty produces 'app-release-unsigned.apk' which is safer.
+                println "No Release Keystore found. Skipping signing configuration."
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // Use the configuration defined above
+            signingConfig signingConfigs.release
+
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
@@ -61,7 +92,7 @@ dependencies {
     implementation libs.hilt.android
     kapt libs.hilt.compiler
 
-    // Glide (Image Loading) - ADDED THIS
+    // Glide (Image Loading)
     implementation 'com.github.bumptech.glide:glide:4.16.0'
 
     testImplementation libs.junit
