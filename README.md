@@ -30,6 +30,20 @@ Every calculation, prediction, and log is stored locally using Room Database and
 
 ---
 
+## 📸 App Screenshots
+
+<div align="center">
+
+| | | |
+|:---:|:---:|:---:|
+| <img src="./1.jpeg" width="300" /> | <img src="./2.jpeg" width="300" /> | <img src="./3.jpeg" width="300" /> |
+| <img src="./4.jpeg" width="300" /> | <img src="./5.jpeg" width="300" /> | <img src="./6.jpeg" width="300" /> |
+| | <img src="./7.jpeg" width="300" /> | |
+
+</div>
+
+---
+
 ## 🧠 The Philosophy: Mind First, AI Second
 This project represents a new era of software engineering.
 - **The Vision & Logic:** Purely Human. The architecture, the safety algorithms, and the user experience were designed by human intuition (@praveen).
@@ -61,14 +75,6 @@ We believe in using AI as a power tool, not the architect.
 *   **Local Data:** Room Database & Proto DataStore
 *   **UI:** XML ViewBinding with Material Design 3 Components
 *   **Background Work:** Foreground Services (Special Use type)
-
----
-
-## 📸 Screenshots
-
-| Dashboard | Benchmark | Settings |
-|:---:|:---:|:---:|
-| *Add screenshot here* | *Add screenshot here* | *Add screenshot here* |
 
 ---
 
