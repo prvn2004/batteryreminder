@@ -32,7 +32,7 @@ class OnboardingActivity : AppCompatActivity() {
     private lateinit var binding: ActivityOnboardingBinding
     private lateinit var adapter: OnboardingAdapter
 
-    private val githubUrl = "https://github.com/yourusername/batteryreminder" // REPLACE WITH REAL LINK
+    private val githubUrl = "https://github.com/prvn2004/batteryreminder" // REPLACE WITH REAL LINK
 
     private val pages = listOf(
         OnboardingPage.Info(

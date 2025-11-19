@@ -178,7 +178,7 @@ class SettingsFragment : Fragment() {
         binding.btnSettingsGithub.setOnClickListener {
             try {
                 // Replace with your actual repo URL
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/yourusername/batteryreminder"))
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/prvn2004/batteryreminder"))
                 startActivity(intent)
             } catch (e: Exception) {
                 Toast.makeText(context, "No browser found", Toast.LENGTH_SHORT).show()
