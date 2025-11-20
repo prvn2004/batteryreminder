@@ -4,13 +4,13 @@ name: Android Release Pipeline
 on:
   push:
     branches:
-      - production # Triggers only on push to production branch
+      - production
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Required to create Releases
+      contents: write
 
     steps:
       - name: Checkout Code
@@ -23,6 +23,9 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      - name: Make gradlew executable  # <--- ADDED THIS STEP
+        run: chmod +x gradlew
+
       - name: Decode Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -31,11 +34,11 @@ jobs:
 
       - name: Build Release APK and Bundle
         env:
-          KEYSTORE_PATH: release-key.jks # Relative to app/ folder
+          KEYSTORE_PATH: release-key.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          BUILD_NUMBER: ${{ github.run_number }} # e.g., 45
+          BUILD_NUMBER: ${{ github.run_number }}
         run: ./gradlew assembleRelease bundleRelease
 
       - name: Create Release Tag
