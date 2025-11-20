@@ -1,7 +1,8 @@
-// ===== batteryreminder\app\src\main\java\project\aio\batteryreminder\service\BatteryMonitorService.kt =====
 package project.aio.batteryreminder.service
 
+import android.app.AlarmManager
 import android.app.Notification
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -10,8 +11,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
@@ -79,10 +82,18 @@ class BatteryMonitorService : Service() {
         }
     }
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Ensure channel exists with high importance before starting foreground
+        ensureNotificationChannel()
+        startForeground(1, createNotification("AIO Monitor Active"))
+        // START_STICKY ensures the system recreates the service if killed for memory
+        return START_STICKY
+    }
+
     override fun onCreate() {
         super.onCreate()
         powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        startForeground(1, createNotification("AIO Monitor Active"))
+        ensureNotificationChannel()
 
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val screenFilter = IntentFilter().apply {
@@ -100,6 +111,40 @@ class BatteryMonitorService : Service() {
         }
     }
 
+    // Watchdog: If user swipes app from recents, this triggers.
+    // We set an alarm to restart the service in 1 second.
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        val restartServiceIntent = Intent(applicationContext, BatteryMonitorService::class.java).also {
+            it.setPackage(packageName)
+        }
+        val restartServicePendingIntent = PendingIntent.getService(
+            applicationContext, 1, restartServiceIntent,
+            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val alarmService = applicationContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        alarmService.set(
+            AlarmManager.ELAPSED_REALTIME,
+            SystemClock.elapsedRealtime() + 1000,
+            restartServicePendingIntent
+        )
+        super.onTaskRemoved(rootIntent)
+    }
+
+    private fun ensureNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "battery_monitor_channel",
+                "Battery Monitor Service",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Background service for monitoring battery levels"
+                setShowBadge(false)
+            }
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+    }
+
     private fun checkBattery(intent: Intent, rawLevel: Int, status: Int) {
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
         val pct = ((rawLevel * 100) / scale.toFloat()).toInt()
@@ -108,6 +153,12 @@ class BatteryMonitorService : Service() {
         val levelChanged = pct != lastLevel
         lastLevel = pct
         lastStatus = status
+
+        // Update Notification Content periodically
+        if (levelChanged) {
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager.notify(1, createNotification("Battery: $pct%"))
+        }
 
         if (isCharging) {
             if (isEmergencyActive) isEmergencyActive = false
@@ -228,8 +279,8 @@ class BatteryMonitorService : Service() {
             .setContentText(content)
             .setSmallIcon(R.drawable.battery)
             .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .setSilent(true)
+            .setOngoing(true) // Persistent
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }

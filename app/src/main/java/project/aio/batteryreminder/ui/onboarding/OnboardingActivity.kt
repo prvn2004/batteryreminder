@@ -1,11 +1,14 @@
 package project.aio.batteryreminder.ui.onboarding
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -32,23 +35,23 @@ class OnboardingActivity : AppCompatActivity() {
     private lateinit var binding: ActivityOnboardingBinding
     private lateinit var adapter: OnboardingAdapter
 
-    private val githubUrl = "https://github.com/prvn2004/batteryreminder" // REPLACE WITH REAL LINK
+    private val githubUrl = "https://github.com/prvn2004/batteryreminder"
 
     private val pages = listOf(
         OnboardingPage.Info(
             "Total Battery Health",
             "Monitor your device's voltage, temperature, and drain rate in real-time to keep it healthy.",
-            R.drawable.battery // Local Image
+            R.drawable.battery
         ),
         OnboardingPage.Info(
             "Cable Diagnostic",
             "Not all cables are created equal. Test your charger's stability, ripple, and charging speed.",
-            R.drawable.cable // Local Image
+            R.drawable.cable
         ),
         OnboardingPage.Info(
             "Smart Alerts",
             "Get notified about full charge, low battery, thermal throttling, and ghost drains while you sleep.",
-            R.drawable.alert // Local Image
+            R.drawable.alert
         ),
         OnboardingPage.Privacy(githubUrl),
         OnboardingPage.Permissions
@@ -136,6 +139,7 @@ class OnboardingActivity : AppCompatActivity() {
         checkPermissionState()
     }
 
+    @SuppressLint("BatteryLife")
     private fun handlePermissionClick(type: OnboardingAdapter.PermissionType) {
         when (type) {
             OnboardingAdapter.PermissionType.NOTIFICATIONS -> {
@@ -155,6 +159,18 @@ class OnboardingActivity : AppCompatActivity() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:$packageName"))
                     startActivity(intent)
+                }
+            }
+            OnboardingAdapter.PermissionType.BATTERY_OPTIMIZATION -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    try {
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Cannot open battery settings", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
@@ -177,16 +193,21 @@ class OnboardingActivity : AppCompatActivity() {
         val overlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(this) else true
         val settings = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.System.canWrite(this) else true
 
-        adapter.permissionsState = Triple(notifs, overlay, settings)
+        val batteryOpt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            pm.isIgnoringBatteryOptimizations(packageName)
+        } else true
 
-        val allGranted = notifs && overlay && settings
+        adapter.permissionsState = OnboardingAdapter.PermissionsState(notifs, overlay, settings, batteryOpt)
+
+        val allGranted = notifs && overlay && settings && batteryOpt
         binding.btnGetStarted.alpha = if (allGranted) 1.0f else 0.5f
         binding.btnGetStarted.isEnabled = allGranted
     }
 
     private fun areAllPermissionsGranted(): Boolean {
-        val (n, o, s) = adapter.permissionsState
-        return n && o && s
+        val state = adapter.permissionsState
+        return state.notifications && state.overlay && state.settings && state.batteryOpt
     }
 
     private fun completeOnboarding() {

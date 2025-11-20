@@ -13,7 +13,6 @@
         android:orientation="vertical"
         android:padding="24dp">
 
-        <!-- UPDATED: Use battery.png here -->
         <ImageView
             android:layout_width="80dp"
             android:layout_height="80dp"
@@ -168,6 +167,52 @@
             <TextView
                 android:id="@+id/tvGrantSettings"
                 android:text="GRANT"
+                android:textColor="@color/orange"
+                android:textStyle="bold"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
+
+        <!-- 4. Battery Optimization (NEW) -->
+        <LinearLayout
+            android:id="@+id/btnGrantBattery"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="@drawable/bg_card_outlined"
+            android:padding="16dp"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:text="Disable Battery Saver"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+                <TextView
+                    android:text="REQUIRED to prevent app from sleeping."
+                    android:textColor="@color/red"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+            </LinearLayout>
+            <ImageView
+                android:id="@+id/ivCheckBattery"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_battery_std"
+                app:tint="@color/green"
+                android:visibility="gone"/>
+            <TextView
+                android:id="@+id/tvGrantBattery"
+                android:text="ALLOW"
                 android:textColor="@color/orange"
                 android:textStyle="bold"
                 android:layout_width="wrap_content"

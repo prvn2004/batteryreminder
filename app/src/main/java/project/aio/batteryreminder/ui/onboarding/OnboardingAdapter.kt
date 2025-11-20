@@ -10,7 +10,6 @@ import project.aio.batteryreminder.databinding.ItemOnboardingPermissionsBinding
 import project.aio.batteryreminder.databinding.ItemOnboardingPrivacyBinding
 
 sealed class OnboardingPage {
-    // Changed String imageUrl to Int imageRes
     data class Info(val title: String, val desc: String, val imageRes: Int) : OnboardingPage()
     data class Privacy(val githubUrl: String) : OnboardingPage()
     object Permissions : OnboardingPage()
@@ -27,20 +26,27 @@ class OnboardingAdapter(
         const val VIEW_TYPE_PERMISSIONS = 3
     }
 
-    // State for permission page
-    var permissionsState = Triple(false, false, false)
+    // Quadruple state now: (Notifs, Overlay, Settings, BatteryOpt)
+    // Using a data class or simple List is cleaner, but sticking to structure:
+    var permissionsState = PermissionsState()
         set(value) {
             field = value
-            // Permission page is always last
             notifyItemChanged(items.size - 1)
         }
+
+    data class PermissionsState(
+        val notifications: Boolean = false,
+        val overlay: Boolean = false,
+        val settings: Boolean = false,
+        val batteryOpt: Boolean = false
+    )
 
     sealed class ActionType {
         data class Permission(val type: PermissionType) : ActionType()
         data class OpenUrl(val url: String) : ActionType()
     }
 
-    enum class PermissionType { NOTIFICATIONS, OVERLAY, SETTINGS }
+    enum class PermissionType { NOTIFICATIONS, OVERLAY, SETTINGS, BATTERY_OPTIMIZATION }
 
     override fun getItemViewType(position: Int): Int {
         return when (items[position]) {
@@ -78,7 +84,6 @@ class OnboardingAdapter(
         fun bind(item: OnboardingPage.Info) {
             binding.tvTitle.text = item.title
             binding.tvDesc.text = item.desc
-            // Load local resource directly
             binding.ivImage.setImageResource(item.imageRes)
         }
     }
@@ -93,25 +98,31 @@ class OnboardingAdapter(
 
     inner class PermissionsViewHolder(val binding: ItemOnboardingPermissionsBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind() {
-            val (notifsGranted, overlayGranted, settingsGranted) = permissionsState
+            val state = permissionsState
 
             // Notifications
             binding.btnGrantNotifs.setOnClickListener { onAction(ActionType.Permission(PermissionType.NOTIFICATIONS)) }
-            binding.btnGrantNotifs.alpha = if (notifsGranted) 0.5f else 1.0f
-            binding.ivCheckNotifs.visibility = if (notifsGranted) View.VISIBLE else View.GONE
-            binding.tvGrantNotifs.visibility = if (notifsGranted) View.GONE else View.VISIBLE
+            binding.btnGrantNotifs.alpha = if (state.notifications) 0.5f else 1.0f
+            binding.ivCheckNotifs.visibility = if (state.notifications) View.VISIBLE else View.GONE
+            binding.tvGrantNotifs.visibility = if (state.notifications) View.GONE else View.VISIBLE
 
             // Overlay
             binding.btnGrantOverlay.setOnClickListener { onAction(ActionType.Permission(PermissionType.OVERLAY)) }
-            binding.btnGrantOverlay.alpha = if (overlayGranted) 0.5f else 1.0f
-            binding.ivCheckOverlay.visibility = if (overlayGranted) View.VISIBLE else View.GONE
-            binding.tvGrantOverlay.visibility = if (overlayGranted) View.GONE else View.VISIBLE
+            binding.btnGrantOverlay.alpha = if (state.overlay) 0.5f else 1.0f
+            binding.ivCheckOverlay.visibility = if (state.overlay) View.VISIBLE else View.GONE
+            binding.tvGrantOverlay.visibility = if (state.overlay) View.GONE else View.VISIBLE
 
             // Settings
             binding.btnGrantSettings.setOnClickListener { onAction(ActionType.Permission(PermissionType.SETTINGS)) }
-            binding.btnGrantSettings.alpha = if (settingsGranted) 0.5f else 1.0f
-            binding.ivCheckSettings.visibility = if (settingsGranted) View.VISIBLE else View.GONE
-            binding.tvGrantSettings.visibility = if (settingsGranted) View.GONE else View.VISIBLE
+            binding.btnGrantSettings.alpha = if (state.settings) 0.5f else 1.0f
+            binding.ivCheckSettings.visibility = if (state.settings) View.VISIBLE else View.GONE
+            binding.tvGrantSettings.visibility = if (state.settings) View.GONE else View.VISIBLE
+
+            // Battery Optimization
+            binding.btnGrantBattery.setOnClickListener { onAction(ActionType.Permission(PermissionType.BATTERY_OPTIMIZATION)) }
+            binding.btnGrantBattery.alpha = if (state.batteryOpt) 0.5f else 1.0f
+            binding.ivCheckBattery.visibility = if (state.batteryOpt) View.VISIBLE else View.GONE
+            binding.tvGrantBattery.visibility = if (state.batteryOpt) View.GONE else View.VISIBLE
         }
     }
 }
