@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
@@ -36,6 +37,7 @@ class BatteryMonitorService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private lateinit var powerManager: PowerManager
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private var thresholds = listOf<Threshold>()
     private var emergencySecondsLimit = 120
@@ -58,12 +60,16 @@ class BatteryMonitorService : Service() {
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent == null) return
+
+            // 1. Aggressive WakeLock: Keep CPU awake while processing
+            acquireWakeLock(5000)
+
             if (thermalAlarmEnabled) checkThermal(intent)
 
             val rawLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val rawStatus = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
 
-            if (rawLevel == lastLevel && rawStatus == lastStatus) return
+            // Process even if level hasn't changed (to keep 'alive' logic running)
             checkBattery(intent, rawLevel, rawStatus)
         }
     }
@@ -74,25 +80,37 @@ class BatteryMonitorService : Service() {
                 Intent.ACTION_SCREEN_OFF -> {
                     screenOffTime = System.currentTimeMillis()
                     screenOffLevel = lastLevel
+                    // 2. Aggressive: When screen dies, schedule the Watchdog immediately
+                    scheduleWatchdog()
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     if (ghostDrainEnabled && screenOffTime > 0) checkGhostDrain()
+                    // Cancel watchdog to save battery while user is active (Service is safe while screen is on)
+                    // Optional: Keep it running if you want 100% paranoia
+                    scheduleWatchdog()
                 }
             }
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Ensure channel exists with high importance before starting foreground
         ensureNotificationChannel()
         startForeground(1, createNotification("AIO Monitor Active"))
-        // START_STICKY ensures the system recreates the service if killed for memory
-        return START_STICKY
+
+        // 3. Aggressive: Schedule the next heartbeat
+        scheduleWatchdog()
+
+        // START_REDELIVER_INTENT: If system kills us, restart with the same intent
+        return START_REDELIVER_INTENT
     }
 
     override fun onCreate() {
         super.onCreate()
         powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+
+        // Partial WakeLock: CPU ON, Screen OFF
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BatteryApp::MonitorLock")
+
         ensureNotificationChannel()
 
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -111,24 +129,60 @@ class BatteryMonitorService : Service() {
         }
     }
 
-    // Watchdog: If user swipes app from recents, this triggers.
-    // We set an alarm to restart the service in 1 second.
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        val restartServiceIntent = Intent(applicationContext, BatteryMonitorService::class.java).also {
-            it.setPackage(packageName)
+    private fun acquireWakeLock(timeout: Long) {
+        try {
+            if (wakeLock?.isHeld == false) {
+                wakeLock?.acquire(timeout)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-        val restartServicePendingIntent = PendingIntent.getService(
-            applicationContext, 1, restartServiceIntent,
-            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+    }
+
+    // THE WATCHDOG: This is the "Internet Solution"
+    // It sets an alarm that wakes the device from Doze mode every 1 minute to check on the service.
+    private fun scheduleWatchdog() {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, RestartReceiver::class.java) // Call the Receiver, not Service directly
+        val pendingIntent = PendingIntent.getBroadcast(
+            this, 777, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val alarmService = applicationContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        alarmService.set(
-            AlarmManager.ELAPSED_REALTIME,
-            SystemClock.elapsedRealtime() + 1000,
-            restartServicePendingIntent
-        )
+
+        val triggerTime = SystemClock.elapsedRealtime() + 60_000L // 1 Minute
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // setExactAndAllowWhileIdle is the "Nuclear" option. It fires even in Doze.
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pendingIntent)
+            } else {
+                alarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pendingIntent)
+            }
+        } catch (e: SecurityException) {
+            // Handle Android 12+ Exact Alarm permission denial
+            Log.e("BatteryMonitor", "Exact Alarm permission missing")
+        }
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // 4. Aggressive: User swiped app? Restart immediately.
+        val intent = Intent(this, RestartReceiver::class.java)
+        sendBroadcast(intent)
         super.onTaskRemoved(rootIntent)
     }
+
+    override fun onDestroy() {
+        // 5. Aggressive: System killed us? Restart immediately.
+        val intent = Intent(this, RestartReceiver::class.java)
+        sendBroadcast(intent)
+
+        try { unregisterReceiver(batteryReceiver) } catch (e: Exception) {}
+        try { unregisterReceiver(screenStateReceiver) } catch (e: Exception) {}
+        serviceScope.cancel()
+        super.onDestroy()
+    }
+
+    // --- LOGIC BELOW REMAINS UNCHANGED ---
 
     private fun ensureNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -139,6 +193,7 @@ class BatteryMonitorService : Service() {
             ).apply {
                 description = "Background service for monitoring battery levels"
                 setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
@@ -154,7 +209,6 @@ class BatteryMonitorService : Service() {
         lastLevel = pct
         lastStatus = status
 
-        // Update Notification Content periodically
         if (levelChanged) {
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.notify(1, createNotification("Battery: $pct%"))
@@ -172,10 +226,12 @@ class BatteryMonitorService : Service() {
 
         if (pct > (lastLevel - 1)) alertedLevels.removeIf { it < pct }
 
-        if (levelChanged) {
+        if (levelChanged || !isCharging) { // Check even if level hasn't changed
             serviceScope.launch {
-                predictionEngine.logToDb(pct, false)
-                predictionEngine.addHistoryPoint(System.currentTimeMillis(), pct)
+                if(levelChanged) {
+                    predictionEngine.logToDb(pct, false)
+                    predictionEngine.addHistoryPoint(System.currentTimeMillis(), pct)
+                }
                 checkThresholds(pct)
                 checkBedtime(pct)
 
@@ -184,7 +240,6 @@ class BatteryMonitorService : Service() {
 
                 if (isScreenOn || isCritical) {
                     if (pct <= 20) {
-                        // Try Hybrid first, fallback to Weighted
                         var secondsLeft = predictionEngine.getHybridTimeRemaining()
                         if (secondsLeft <= 0) {
                             secondsLeft = predictionEngine.estimateTimeRemainingWeighted()
@@ -279,17 +334,11 @@ class BatteryMonitorService : Service() {
             .setContentText(content)
             .setSmallIcon(R.drawable.battery)
             .setContentIntent(pendingIntent)
-            .setOngoing(true) // Persistent
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
-    }
-
-    override fun onDestroy() {
-        try { unregisterReceiver(batteryReceiver) } catch (e: Exception) {}
-        try { unregisterReceiver(screenStateReceiver) } catch (e: Exception) {}
-        serviceScope.cancel()
-        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

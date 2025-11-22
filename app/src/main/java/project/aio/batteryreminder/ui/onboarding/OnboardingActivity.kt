@@ -1,3 +1,4 @@
+// ===== batteryreminder\app\src\main\java\project\aio\batteryreminder\ui\onboarding\OnboardingActivity.kt =====
 package project.aio.batteryreminder.ui.onboarding
 
 import android.Manifest
@@ -26,6 +27,7 @@ import project.aio.batteryreminder.R
 import project.aio.batteryreminder.data.PreferencesManager
 import project.aio.batteryreminder.databinding.ActivityOnboardingBinding
 import project.aio.batteryreminder.ui.MainActivity
+import project.aio.batteryreminder.utils.AutoStartHelper // Import the helper
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -162,16 +164,16 @@ class OnboardingActivity : AppCompatActivity() {
                 }
             }
             OnboardingAdapter.PermissionType.BATTERY_OPTIMIZATION -> {
+                // 1. Standard Whitelist
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                         data = Uri.parse("package:$packageName")
                     }
-                    try {
-                        startActivity(intent)
-                    } catch (e: Exception) {
-                        Toast.makeText(this, "Cannot open battery settings", Toast.LENGTH_SHORT).show()
-                    }
+                    try { startActivity(intent) } catch (e: Exception) {}
                 }
+
+                // 2. OEM Specific (Crucial for Motorola/Xiaomi)
+                AutoStartHelper.getAutoStartPermission(this)
             }
         }
     }
