@@ -1,89 +1,76 @@
 # 🤝 Contributing to AIO Battery Monitor
 
-First off, thank you for considering contributing to AIO Battery Monitor!
+Thanks for considering a contribution. Bug fixes, feature work, documentation improvements, and UI polish are welcome, but battery and background-service behavior must be checked on real hardware where possible.
 
-This project is a blend of human creativity and AI efficiency. We welcome all types of contributions—bug fixes, feature enhancements, documentation improvements, and UI polishes.
+## Prerequisites
 
----
+- Android Studio with an Android SDK 36 installation
+- JDK 17 for Gradle/Android Gradle Plugin execution (the module compiles Java/Kotlin source for JVM 11)
+- Git
+- A physical Android device for battery-current, charging, overlay, boot, and OEM background-behavior checks
 
-## 📋 Prerequisites
+## Set up and build
 
-Before you begin, ensure you have the following installed:
-1.  **Android Studio:** Ladybug (2024.2.1) or newer recommended.
-2.  **JDK:** Java 11 or 17 (Project uses `JavaVersion.VERSION_11`).
-3.  **Git:** For version control.
+~~~powershell
+git clone https://github.com/prvn2004/batteryreminder.git
+cd batteryreminder
+.\gradlew.bat assembleDebug
+.\gradlew.bat installDebug
+~~~
 
----
+Open the project in Android Studio, let Gradle sync, and run the app configuration. The first launch opens onboarding. Grant only the permissions needed for the features under test: notifications (Android 13+), display over other apps, modify system settings, and exemption from battery optimizations.
 
-## 🚀 How to Replicate & Build
+## Test commands
 
-Since this project relies on local resources for privacy (no URL fetching), there is one manual step required after cloning.
+~~~powershell
+.\gradlew.bat testDebugUnitTest
+.\gradlew.bat connectedDebugAndroidTest
+~~~
 
-1.  **Clone the Repository**
-    ```bash
-    git clone https://github.com/prvn2004/batteryreminder.git
-    cd batteryreminder
-    ```
+The current repository contains only the default sample unit and instrumentation tests. Treat the following as manual test requirements until feature-specific tests are added:
 
-2.  **Open in Android Studio**
-    *   Open Android Studio -> File -> Open -> Select the project folder.
-    *   Let Gradle sync.
+- Confirm percentage thresholds and alert duration behavior.
+- Exercise sound, custom ringtone, vibration, flash, and TTS settings.
+- Test the overlay on a locked screen and after overlay permission is revoked.
+- Test the foreground service after app swipe-away, reboot, Doze, and OEM battery restrictions.
+- Run the cable diagnostic while charging at different battery levels and temperatures.
+- Compare prediction output on devices that do and do not expose current/charge-counter sensors.
+- Check Android API 24 through the current target API where hardware or emulator coverage is available.
 
-    *You can use any PNGs you like, or the vector XMLs provided in the source code will act as fallbacks if they exist.*
+Do not describe a test as passing unless it has actually been run and observed.
 
-3**Build & Run**
-    *   Connect a physical Android device (Emulators cannot accurately test Battery Current/Voltage).
-    *   Run the `app` configuration.
+## Architecture and coding standards
 
----
+- Keep UI in activities/fragments and XML layouts; keep persistence in data; keep reusable calculations and device integrations in utils; keep lifecycle/background work in service.
+- Follow the existing Hilt, Coroutines/Flow, Room, Preferences DataStore, View Binding, and Navigation patterns.
+- Keep feature logic modular and add or update callers when changing a public function or data shape.
+- Preserve the existing dark Material theme and accessibility-friendly labels.
+- Do not add android.permission.INTERNET or analytics/ad SDKs without an explicit product decision. The app can open GitHub in an external browser, but that is separate from in-app network access.
+- Do not commit local.properties, keystores, signing credentials, generated build outputs, or device-specific IDE files.
 
-## 📐 Coding Standards
+## Pull requests
 
-We follow a strict **"Mind First"** approach.
-*   **Modular Code:** Do not write spaghetti code. Use `Extensions`, `Utils`, and separate `ViewModel` logic.
-*   **Architecture:** Stick to MVVM.
-    *   Logic goes in `ViewModel` or `UseCases/Engines`.
-    *   UI goes in `Fragments/Activities`.
-*   **Privacy Check:** **NEVER** add the `INTERNET` permission to `AndroidManifest.xml`. If a feature requires internet, it will be rejected.
-*   **AI Usage:** You are free to use AI (ChatGPT, Claude, Copilot) to generate code, **BUT** you must verify it. You are responsible for the code you commit.
+1. Create a focused branch from production.
 
----
+   ~~~powershell
+   git checkout -b feature/short-description
+   ~~~
 
-## 🔍 How to Contribute
+2. Make the smallest coherent change and update documentation when behavior, permissions, commands, or configuration changes.
+3. Run the relevant Gradle tests and manual device checks; include exact commands and any failures in the pull request.
+4. Review the diff for secrets, generated artifacts, stale comments, and unrelated formatting changes.
+5. Commit with a clear message and open a pull request against production. Include screenshots or a short recording for UI changes.
 
-### 1. Reporting Bugs
-*   Go to the [Issues](https://github.com/prvn2004/batteryreminder/issues) tab.
-*   Click **New Issue**.
-*   Describe the bug, your device model, and Android version.
+~~~powershell
+git add .
+git commit -m "feat: describe the change"
+git push origin feature/short-description
+~~~
 
-### 2. Submitting Changes
-1.  **Fork** the repository.
-2.  Create a new **Branch** for your feature:
-    ```bash
-    git checkout -b feature/amazing-new-feature
-    ```
-3.  **Commit** your changes with meaningful messages.
-    ```bash
-    git commit -m "feat: Added OLED burn-in protection mode"
-    ```
-4.  **Push** to your branch.
-    ```bash
-    git push origin feature/amazing-new-feature
-    ```
-5.  Open a **Pull Request** (PR).
-    *   Explain what you changed.
-    *   Explain *why* you changed it.
-    *   If it's a UI change, please attach a screenshot.
+## Release notes for maintainers
 
----
+Pushes to production trigger .github/workflows/release.yml. CI uses JDK 17, injects the signing keystore from GitHub secrets, derives BUILD_NUMBER from the workflow run number, builds the APK/AAB, and publishes a v1.0.<run-number> GitHub Release. Never commit the keystore or its credentials.
 
-## 🧪 Testing Requirements
+## Licensing
 
-*   **Cable Benchmark:** Must be tested on a physical device while charging.
-*   **Alerts:** Test overlay permissions on API 24 (Nougat) through API 35 (Android 15).
-*   **Background Service:** Ensure the `ForegroundService` notification appears on boot.
-
----
-
-## 📜 License By Contributing
-By contributing your code, you agree that your contributions will be licensed under the same license as the project (MIT/Open Source).
+There is currently no LICENSE file in the repository. Do not claim that contributions are covered by MIT or another license until the project owner adds an explicit license and contribution terms.
